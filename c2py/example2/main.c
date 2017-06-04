@@ -3,79 +3,74 @@
 #include <Python.h>
 #include <stdio.h>
 
-int
-main(int argc, char *argv[])
+int main( int argc, char *argv[])
 {
-    // Set PYTHONPATH TO working directory
-    setenv("PYTHONPATH",".",1);
+    // define integers in C from which we will compute a * b in python:
+    int a = 7;
+    int b = 5;
 
-    PyObject *pName, *pModule, *pDict, *pFunc;
-    PyObject *pArgs, *pValue;
-    int i;
+    // Set PYTHONPATH to working directory
+    setenv("PYTHONPATH", ".", 1);
 
+    // start the python interpreter
     Py_Initialize();
-//    pName = PyString_FromString(argv[1]);
-    pName = PyString_FromString((char*)"multiply");
-    /* Error checking of pName left out */
 
-    pModule = PyImport_Import(pName);
-    Py_DECREF(pName);
-
-    char input[100] = {"multiply"};
-    argc = 3;
+    // import the python module we will be using
+    PyObject* pName   = PyString_FromString((char*)"multiply");
+    PyObject* pModule = PyImport_Import(pName);
+    Py_DECREF( pName );
 
     if (pModule != NULL)
     {
-        pFunc = PyObject_GetAttrString(pModule, input);
+       // get the attribute (function) of the python module we will be using
+       PyObject* pFunc = PyObject_GetAttrString(pModule, "multiply");
 
-        if (pFunc && PyCallable_Check(pFunc))
-        {
-            pArgs = PyTuple_New(2);
-            for (i = 0; i < argc - 3; ++i) {
-                if (!pValue) {
-                    Py_DECREF(pArgs);
-                    Py_DECREF(pModule);
-                    fprintf(stderr, "Cannot convert argument\n");
-                    return 1;
-                }
-            }
-            char num[2];
-            num[0] = '7';
-            pValue = PyInt_FromLong( atoi( num ) );
-            PyTuple_SetItem(pArgs, 0, pValue);
-            num[0] = '5';
-            pValue = PyInt_FromLong( atoi( num ) );
-            PyTuple_SetItem(pArgs, 1, pValue);
+       if (pFunc && PyCallable_Check( pFunc ))
+       {
+          PyObject* pArgs = PyTuple_New( 2 );
 
-            pValue = PyObject_CallObject(pFunc, pArgs);
-            Py_DECREF(pArgs);
+          PyObject* pValue = PyInt_FromLong( a );
+          PyTuple_SetItem(pArgs, 0, pValue);
 
-            if (pValue != NULL)
-            {
-                printf("Result of call: %ld\n", PyInt_AsLong(pValue));
-                Py_DECREF(pValue);
-            }
-            else {
-                Py_DECREF(pFunc);
-                Py_DECREF(pModule);
-                PyErr_Print();
-                fprintf(stderr,"Call failed\n");
-                return 1;
-            }
-        }
-        else {
-            if (PyErr_Occurred())
-                PyErr_Print();
-            fprintf(stderr, "Cannot find function \"%s\"\n", argv[2]);
-        }
-        Py_XDECREF(pFunc);
-        Py_DECREF(pModule);
+          pValue = PyInt_FromLong( b );
+          PyTuple_SetItem(pArgs, 1, pValue);
+
+          // call the python function
+          pValue = PyObject_CallObject(pFunc, pArgs);
+          Py_DECREF(pArgs);
+
+          if (pValue != NULL)
+          {
+             printf("Result of call: %ld\n", PyInt_AsLong(pValue));
+             Py_DECREF(pValue);
+          }
+          else
+          {
+             Py_DECREF(pFunc);
+             Py_DECREF(pModule);
+             PyErr_Print();
+             fprintf(stderr,"Call failed\n");
+             return 1;
+          }
+       }
+       else
+       {
+          if (PyErr_Occurred())
+          {
+             PyErr_Print();
+          }
+       }
+       Py_XDECREF(pFunc);
+       Py_DECREF(pModule);
     }
-    else {
+    else
+    {
         PyErr_Print();
-        fprintf(stderr, "Failed to load \"%s\"\n", argv[1]);
         return 1;
     }
+
+    // stop the python interpreter
     Py_Finalize();
+
     return 0;
 }

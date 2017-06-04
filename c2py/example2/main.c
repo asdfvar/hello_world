@@ -1,4 +1,7 @@
-// https://docs.python.org/release/2.6.5/extending/embedding.html#pure-embedding
+/*
+** a simplified example derived from:
+** https://docs.python.org/release/2.6.5/extending/embedding.html#pure-embedding
+*/
 
 #include <Python.h>
 #include <stdio.h>

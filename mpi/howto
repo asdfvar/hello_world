@@ -1,0 +1,6 @@
+download openMPI from https://www.open-mpi.org/software/ompi
+unzip downloaded file into desired directory location
+run the "configure" file
+build via: "sudo make all"
+install via: "sudo make install"
+add installed dynamic libraries to LD_LIBRARY_PATH environment variable via: export LD_LIBRARY_PATH=/usr/local/lib

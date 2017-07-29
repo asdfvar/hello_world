@@ -69,11 +69,12 @@ int main ( int argc, char *argv[] )
 //
 //  Process 0 prints an introductory message.
 //
+MPI_ANY_TAG;
   if ( id == 0 ) 
   {
     timestamp ( );
     cout << "\n";
-    cout << "HELLO_MPI - Master process:\n";
+    cout << __FILE__ << ":HELLO_MPI - Master process:\n";
     cout << "  C++/MPI version\n";
     cout << "  An MPI example program.\n";
     cout << "\n";

@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include <stdio.h>
+#include "group_tags.h"
 
 int main(int argc, char **argv) 
 { 
@@ -11,6 +12,7 @@ int main(int argc, char **argv)
 
    MPI_Init(&argc, &argv); 
    MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+printf("%s:%d:rank %d\n", __FILE__, __LINE__, rank);
 
 
    /* Build intra-communicator for local sub-group */ 

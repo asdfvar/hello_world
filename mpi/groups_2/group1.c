@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include <stdio.h>
+#include "group_tags.h"
 
 int main(int argc, char **argv) 
 { 
@@ -11,6 +12,7 @@ int main(int argc, char **argv)
 
    MPI_Init(&argc, &argv); 
    MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+printf("%s:%d:rank %d\n", __FILE__, __LINE__, rank);
 
    /* Build intra-communicator for local sub-group */ 
    MPI_Comm_split(MPI_COMM_WORLD, group_number, rank, &myComm); 
@@ -22,6 +24,8 @@ int main(int argc, char **argv)
 
 
    /* Do work ... */ 
+   float numbers[3] = {10, 12, 13};
+   MPI_Send( numbers, 3, MPI_FLOAT, 0, TAG_0, myFirstComm );
 
    printf("%s: hello\n", __FILE__);
 

@@ -1,7 +1,7 @@
 #include <mpi.h>
 #include <stdio.h>
 
-main(int argc, char **argv) 
+int main(int argc, char **argv) 
 { 
    MPI_Comm   myComm;       /* intra-communicator of local sub-group */ 
    MPI_Comm   myFirstComm;  /* inter-communicator */ 
@@ -28,4 +28,3 @@ main(int argc, char **argv)
 
    return 0;
 } 
-

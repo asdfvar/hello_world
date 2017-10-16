@@ -21,7 +21,7 @@ printf("%s:%d:rank %d\n", __FILE__, __LINE__, rank);
 
    /* Build inter-communicators.  Tags are hard-coded. */ 
    /* Group 0 communicates with group 1 and 2 */
-   MPI_Intercomm_create( myComm, 0, MPI_COMM_WORLD, 1, 1, &myFirstComm); 
+   MPI_Intercomm_create( myComm, 0, MPI_COMM_WORLD, 1, 1,  &myFirstComm); 
    MPI_Intercomm_create( myComm, 0, MPI_COMM_WORLD, 2, 12, &mySecondComm); 
 
    /* Do work ... */ 

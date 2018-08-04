@@ -1,0 +1,3 @@
+#!/bin/bash
+
+${HOME}/user_libs/openmpi_3p0p0/bin/mpirun --oversubscribe -np 4 ./main

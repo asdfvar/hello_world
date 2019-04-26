@@ -118,14 +118,10 @@ int main (int argc, char* argv[]) {
    MPI_Comm interComm2to1;
 
    // group 1 communicates with group 2
-<<<<<<< HEAD
-   if (g1_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm1, 0, MPI_COMM_WORLD, 2, INTERCOMM_TAG, &interComm1to2);
    if (g1_rank != MPI_UNDEFINED) {
       printf ("creating inter communicator from world rank %d from communicator containing ranks starting from %d to starting world rank %d at tag %d\n", rank, g1_rank, 2, INTERCOMM_TAG);
    }
-=======
    if (g1_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm1, 0, intraComm1u2, 2, INTERCOMM_TAG, &interComm1to2);
->>>>>>> cc6cf49346756616846e4243688a8f1c933be06b
 
    // group 2 communicates with group 1
    if (g2_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm2, 0, intraComm1u2, 0, INTERCOMM_TAG, &interComm2to1);

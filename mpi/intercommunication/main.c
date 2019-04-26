@@ -60,6 +60,13 @@ int main (int argc, char* argv[]) {
    MPI_Group_rank (group1u3, &g1u3_rank);
    if (g1u3_rank != MPI_UNDEFINED) printf ("group1u3 contains absolute rank %d via relative rank %d\n", rank, g1u3_rank);
 
+   // union groups 1 and 2
+   MPI_Group group1u2;
+   int g1u2_rank;
+   MPI_Group_union (group1, group2, &group1u2);
+   MPI_Group_rank (group1u2, &g1u2_rank);
+   if (g1u2_rank != MPI_UNDEFINED) printf ("group1u2 contains absolute rank %d via relative rank %d\n", rank, g1u2_rank);
+
    // intersect groups 1 and 3
    MPI_Group group1n3;
    int g1n3_rank;
@@ -98,17 +105,30 @@ int main (int argc, char* argv[]) {
    if (g1_rank != MPI_UNDEFINED) if (test == true)  printf ("communicator 1 is an inter-communicator\n");
    if (g1_rank != MPI_UNDEFINED) if (test == false) printf ("communicator 1 is an intra-communicator\n");
 
+   // create intra-communicator for group 1 union 2
+   MPI_Comm intraComm1u2;
+   MPI_Comm_create (MPI_COMM_WORLD, group1u2, &intraComm1u2);
+
+   // verify that the intra-communicator is an intra-communicator
+   if (g1_rank != MPI_UNDEFINED) MPI_Comm_test_inter (intraComm1u2, &test);
+   if (g1_rank != MPI_UNDEFINED) if (test == true)  printf ("intra-communicator 1 union 2 is an inter-communicator\n");
+   if (g1_rank != MPI_UNDEFINED) if (test == false) printf ("intra-communicator 1 union 2 is an intra-communicator\n");
+
    MPI_Comm interComm1to2;
    MPI_Comm interComm2to1;
 
    // group 1 communicates with group 2
+<<<<<<< HEAD
    if (g1_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm1, 0, MPI_COMM_WORLD, 2, INTERCOMM_TAG, &interComm1to2);
    if (g1_rank != MPI_UNDEFINED) {
       printf ("creating inter communicator from world rank %d from communicator containing ranks starting from %d to starting world rank %d at tag %d\n", rank, g1_rank, 2, INTERCOMM_TAG);
    }
+=======
+   if (g1_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm1, 0, intraComm1u2, 2, INTERCOMM_TAG, &interComm1to2);
+>>>>>>> cc6cf49346756616846e4243688a8f1c933be06b
 
    // group 2 communicates with group 1
-   if (g2_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm2, 0, MPI_COMM_WORLD, 0, INTERCOMM_TAG, &interComm2to1);
+   if (g2_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm2, 0, intraComm1u2, 0, INTERCOMM_TAG, &interComm2to1);
 
    // identify this communicator as an inter-communicator
    if (g1_rank != MPI_UNDEFINED) MPI_Comm_test_inter (interComm1to2, &test);
@@ -126,12 +146,27 @@ int main (int argc, char* argv[]) {
    if (g2_rank == 0) MPI_Recv (&buf, 1, MPI_FLOAT, 0, INTERCOMM_P2P, interComm2to1, &stat);
    if (g2_rank == 0) printf ("group 2 relative rank 0 received e = %f from group 1 relative rank 0\n", buf);
 
+   // verify that the group associated with the inter communicators are identical to their intra-communicator counterparts
+   MPI_Group testGroup;
+   if (g1_rank != MPI_UNDEFINED) MPI_Comm_group (interComm1to2, &testGroup);
+   if (g1_rank != MPI_UNDEFINED) MPI_Group_compare (group1, testGroup, &test);
+   if (g1_rank != MPI_UNDEFINED && test == MPI_IDENT)   printf ("the group for inter communication handle from group 1 to 2 is identical to communicator 1's group\n");
+   if (g1_rank != MPI_UNDEFINED && test == MPI_SIMILAR) printf ("the group for inter communication handle from group 1 to 2 is similar to communicator 1's group\n");
+   if (g1_rank != MPI_UNDEFINED && test == MPI_UNEQUAL) printf ("the group for inter communication handle from group 1 to 2 is unequal to communicator 1's group\n");
+
+   if (g2_rank != MPI_UNDEFINED) MPI_Comm_group (interComm2to1, &testGroup);
+   if (g2_rank != MPI_UNDEFINED) MPI_Group_compare (group2, testGroup, &test);
+   if (g2_rank != MPI_UNDEFINED && test == MPI_IDENT)   printf ("the group for inter communication handle from group 2 to 1 is identical to communicator 2's group\n");
+   if (g2_rank != MPI_UNDEFINED && test == MPI_SIMILAR) printf ("the group for inter communication handle from group 2 to 1 is similar to communicator 2's group\n");
+   if (g2_rank != MPI_UNDEFINED && test == MPI_UNEQUAL) printf ("the group for inter communication handle from group 2 to 1 is unequal to communicator 2's group\n");
+
    // free the groups
    MPI_Group_free (&group1);
    MPI_Group_free (&group2);
    MPI_Group_free (&group3);
    MPI_Group_free (&group1u3);
    MPI_Group_free (&group1n3);
+   MPI_Group_free (&testGroup);
 
    // free the communicator handles
    if (g1_rank != MPI_UNDEFINED) {

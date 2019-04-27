@@ -138,14 +138,17 @@ int main (int argc, char* argv[]) {
 
    // group 1 communicates with group 2
    if (g01_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm01, 0, intraComm01u23, 2, INTERCOMM_TAG, &interComm01to23);
-   if (g01_rank != MPI_UNDEFINED) printf ("created inter communicator from world rank %d from communicator containing ranks starting from %d to starting world rank %d at tag %d\n", rank, g01_rank, 2, INTERCOMM_TAG);
+   if (g01_rank != MPI_UNDEFINED) printf ("%d created inter communicator from world rank %d from communicator containing ranks starting from %d to starting world rank %d at tag %d\n", __LINE__, rank, g01_rank, 2, INTERCOMM_TAG);
 
    // group 2 communicates with group 1
    if (g23_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm23, 0, intraComm01u23, 0, INTERCOMM_TAG, &interComm23to01);
-   if (g23_rank != MPI_UNDEFINED) printf ("created inter communicator from world rank %d from communicator containing ranks starting from %d to starting world rank %d at tag %d\n", rank, g23_rank, 2, INTERCOMM_TAG);
+   if (g23_rank != MPI_UNDEFINED) printf ("%d created inter communicator from world rank %d from communicator containing ranks starting from %d to starting world rank %d at tag %d\n", __LINE__, rank, g23_rank, 2, INTERCOMM_TAG);
 
-   if (g0_rank  != MPI_UNDEFINED) MPI_Intercomm_create (comm0, 0, intraComm0u23, 2, INTERCOMM_TAG, &interComm0to23);
-   if (g23_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm23, 0, intraComm0u23, 2, INTERCOMM_TAG, &interComm23to0);
+   if (g0_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm0, 0, intraComm0u23, 1, INTERCOMM_TAG, &interComm0to23);
+   if (g0_rank != MPI_UNDEFINED) printf ("%d created inter communicator from world rank %d from communicator containing ranks starting from %d to starting world rank %d at tag %d\n", __LINE__, rank, g0_rank, 2, INTERCOMM_TAG);
+
+   if (g23_rank != MPI_UNDEFINED) MPI_Intercomm_create (comm23, 0, intraComm0u23, 0, INTERCOMM_TAG, &interComm23to0);
+   if (g23_rank != MPI_UNDEFINED) printf ("%d created inter communicator from world rank %d from communicator containing ranks starting from %d to starting world rank %d at tag %d\n", __LINE__, rank, g23_rank, 2, INTERCOMM_TAG);
 
    // identify this communicator as an inter-communicator
    if (g01_rank != MPI_UNDEFINED) MPI_Comm_test_inter (interComm01to23, &test);

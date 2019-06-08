@@ -1,8 +1,8 @@
-MPI_CC = $(HOME)/user_libs/openmpi_3p0p0/bin/mpicc
-PROC_INC = -i/$(HOME)/user_libs/openmpi_3p0p0/include
+MPI_CC  = $(HOME)/user_libs/openmpi/bin/mpicc
+MPI_INC = -I/$(HOME)/user_libs/openmpi/include
 
 all:
-	$(MPI_CC) main.c -o main
+	$(MPI_CC) main.c $(MPI_INC) -o main
 
 clean:
 	rm -v main

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-${HOME}/user_libs/openmpi_3p0p0/bin/mpirun --oversubscribe -np 4 ./main
+strace ${HOME}/user_libs/openmpi_3p0p0/bin/mpirun --oversubscribe --verbose -np 4 ./main

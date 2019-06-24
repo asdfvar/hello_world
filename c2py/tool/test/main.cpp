@@ -1,4 +1,4 @@
-#include <Python.h>
+#include "ctopy.h"
 #include <iostream>
 
 int main ()

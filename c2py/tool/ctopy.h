@@ -17,7 +17,7 @@ class C_TO_PY {
       {
 
          // set the python path to the requested location
-         setenv ("PYTHONPATH", py_path, 1);
+         setenv ("PYTHONPATH", py_path.c_str (), 1);
 
          // initialize the python interpreter
          Py_Initialize ();
@@ -28,7 +28,7 @@ class C_TO_PY {
 
          if (pyModule != NULL)
          {
-            pyFunc = PyObject_GetAttrString (pyModule, function_name);
+            pyFunc = PyObject_GetAttrString (pyModule, function_name.c_str ());
          }
 
          pyArgs = PyTuple_New (num_args);
@@ -97,7 +97,7 @@ class C_TO_PY {
       // function name: execute from C_TO_PY
       void execute (void)
       {
-         if (pyFunc & PyCallable_Check (pyFunc))
+         if (pyFunc && PyCallable_Check (pyFunc))
          {
             // call the python function
             PyObject_CallObject (pyFunc, pyArgs);

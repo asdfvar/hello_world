@@ -4,6 +4,7 @@
 #include <Python.h>
 #include <string>
 #include <vector>
+#include <iostream>
 
 class C_TO_PY {
 
@@ -56,24 +57,31 @@ class C_TO_PY {
 
       // function name: load from C_TO_PY
       template <typename type>
-         void set_arg (type src)
+         int set_arg (type src)
          {
+            int stat = 0;
+
             PyObject *pyValue;
             if (std::is_same <type, int>::value)
             {
                pyValue = PyInt_FromLong (src);
             }
 
-            PyTuple_SetItem (pyArgs, argument++, pyValue);
+            // set the python value as the argument
+            stat |= PyTuple_SetItem (pyArgs, argument++, pyValue);
 
             // dereference the python value
             if (pyValue != nullptr) Py_DECREF (pyValue);
+
+            return stat;
          }
 
       // function name: load from C_TO_PY
       template <typename type>
-         void set_arg (type *src, int num_el)
+         int set_arg (type *src, int num_el)
          {
+            int stat = 0;
+
             // instantiate a new python list
             PyObject *pyList = PyList_New (num_el);
 
@@ -82,16 +90,21 @@ class C_TO_PY {
                for (int ind = 0; ind < num_el; ind++)
                {
                   // set each integer value to the python list
-                  PyList_SET_ITEM (pyList, ind, PyInt_FromLong (src[ind]));
+                  PyList_SetItem (pyList, ind, PyInt_FromLong ((long)src[ind]));
                }
             }
 
+            PyObject *blarg;
+
+            blarg = PyList_AsTuple (pyList);
+
             // set the argument value
-            PyTuple_SetItem (pyArgs, argument++, pyList);
+            stat |= PyTuple_SetItem (pyArgs, argument++, blarg);
 
             // dereference the python list
             if (pyList != nullptr) Py_DECREF (pyList);
 
+            return stat;
          }
 
       // function name: execute from C_TO_PY

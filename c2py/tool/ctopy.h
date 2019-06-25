@@ -94,12 +94,12 @@ class C_TO_PY {
                }
             }
 
-            PyObject *blarg;
+            PyObject *list_as_tuple = PyTuple_New (num_el);
 
-            blarg = PyList_AsTuple (pyList);
+            list_as_tuple = PyList_AsTuple (pyList);
 
             // set the argument value
-            stat |= PyTuple_SetItem (pyArgs, argument++, blarg);
+            stat |= PyTuple_SetItem (pyArgs, argument++, list_as_tuple);
 
             // dereference the python list
             if (pyList != nullptr) Py_DECREF (pyList);
@@ -113,7 +113,7 @@ class C_TO_PY {
          if (pyFunc && PyCallable_Check (pyFunc))
          {
             // call the python function
-            PyObject_CallObject (pyFunc, pyArgs);
+            result = PyObject_CallObject (pyFunc, pyArgs);
          }
       }
 
@@ -122,6 +122,8 @@ class C_TO_PY {
       PyObject *pyModule;
       PyObject *pyFunc;
       PyObject *pyArgs;
+      PyObject *result;
+
       int argument;
 };
 

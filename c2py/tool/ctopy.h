@@ -2,6 +2,8 @@
 #define CTOPY_H
 
 #include <Python.h>
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include <numpy/arrayobject.h>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -105,6 +107,14 @@ class C_TO_PY {
             if (pyList != nullptr) Py_DECREF (pyList);
 
             return stat;
+         }
+
+      // function name: load from C_TO_PY
+      template <typename type>
+         int set_numpy_arg (type *src, int num_el)
+         {
+            // instantiate a new numpy array
+            PyObject *pyArray = PyArray_SimpleNewFromData (ND, dims, NPY_LONG, reinterpret_cast<void*>(src));
          }
 
       // function name: execute from C_TO_PY

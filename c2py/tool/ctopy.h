@@ -41,23 +41,29 @@ class C_TO_PY {
       // destructor name: C_TO_PY
       ~C_TO_PY (void)
       {
+         // dereference the python type
+         Py_XDECREF (pyType);
+
+         // dereference the python type
+         Py_XDECREF (pyResult);
+
          // dereference the python function
-         Py_DECREF (pyFunc);
+         Py_XDECREF (pyFunc);
 
          // dereference the python module
-         Py_DECREF (pyModule);
+         Py_XDECREF (pyModule);
 
          // dereference the python function
-         Py_DECREF (pyFunc);
+         Py_XDECREF (pyFunc);
 
          // dereference the python arguments
-         Py_DECREF (pyArgs);
+         Py_XDECREF (pyArgs);
 
          // close the python interpreter
          Py_Finalize ();
       }
 
-      // function name: load from C_TO_PY
+      // function name: set_arg from C_TO_PY
       template <typename type>
          int set_arg (type src)
          {
@@ -78,7 +84,7 @@ class C_TO_PY {
             return stat;
          }
 
-      // function name: load from C_TO_PY
+      // function name: set_arg from C_TO_PY
       template <typename type>
          int set_arg (type *src, int num_el)
          {
@@ -87,13 +93,17 @@ class C_TO_PY {
             // instantiate a new python list
             PyObject *pyList = PyList_New (num_el);
 
-            if (std::is_same <type, int>::value)
+            for (int ind = 0; ind < num_el; ind++)
             {
-               for (int ind = 0; ind < num_el; ind++)
-               {
-                  // set each integer value to the python list
-                  PyList_SetItem (pyList, ind, PyInt_FromLong ((long)src[ind]));
-               }
+               if (std::is_same <type, int>::value)
+                  pyType = PyInt_FromLong ((long)src[ind]);
+               else if (std::is_same <type, float>::value)
+                  pyType = PyFloat_FromDouble ((double)src[ind]);
+               else
+                  pyType = nullptr;
+
+               // set each integer value to the python list
+               PyList_SetItem (pyList, ind, pyType);
             }
 
             PyObject *list_as_tuple = PyTuple_New (num_el);
@@ -113,8 +123,23 @@ class C_TO_PY {
       template <typename type>
          int set_numpy_arg (type *src, int num_el)
          {
+            int stat = 0;
+
             // instantiate a new numpy array
-            PyObject *pyArray = PyArray_SimpleNewFromData (ND, dims, NPY_LONG, reinterpret_cast<void*>(src));
+            PyObject *pyArray;
+
+            npy_intp dims = num_el;
+
+            if (std::is_same <type, int>::value)
+            {
+               pyArray = PyArray_SimpleNewFromData (
+                  num_el,
+                  dims,
+                  NPY_FLOAT,
+                  reinterpret_cast<void*>(src));
+            }
+
+            return stat;
          }
 
       // function name: execute from C_TO_PY
@@ -123,7 +148,7 @@ class C_TO_PY {
          if (pyFunc && PyCallable_Check (pyFunc))
          {
             // call the python function
-            result = PyObject_CallObject (pyFunc, pyArgs);
+            pyResult = PyObject_CallObject (pyFunc, pyArgs);
          }
       }
 
@@ -132,7 +157,8 @@ class C_TO_PY {
       PyObject *pyModule;
       PyObject *pyFunc;
       PyObject *pyArgs;
-      PyObject *result;
+      PyObject *pyResult;
+      PyObject *pyType;
 
       int argument;
 };

@@ -1,3 +1,12 @@
+/*
+CPU: AMD FX-8350 Eight-Core @ 8x 4GHz
+
+L2 Cache Size - 8 MB
+L3 Cache Size - 8 MB
+
+Stress test
+*/
+
 #include <iostream>
 #include <cstdlib>
 #include <iomanip>
@@ -32,8 +41,26 @@ static void multiply (float *a, float *b, float *c, long size, long chunks)
 
 static void fill (float *a, float *b, long length)
 {
-   for (long ind = 0; ind < length; ind++) a[ind] = (float)(rand() % 10000) / 10000.0f;
-   for (long ind = 0; ind < length; ind++) b[ind] = (float)(rand() % 10000) / 10000.0f;
+   const long pieces = 100;
+
+   long chunk_length    = length / pieces;
+   long remainder = length % pieces;
+
+   float *a_ptr = a;
+   float *b_ptr = b;
+
+   for (long part = 0; part < pieces; part++)
+   {
+      if (part == pieces - 1) chunk_length += remainder;
+
+      for (long ind = 0; ind < chunk_length; ind++) a_ptr[ind] = (float)(rand() % 10000) / 10000.0f;
+      for (long ind = 0; ind < chunk_length; ind++) b_ptr[ind] = (float)(rand() % 10000) / 10000.0f;
+
+      a_ptr += chunk_length;
+      b_ptr += chunk_length;
+
+      std::cout << (float)(part + 1) / (float)pieces << " fraction of the way there" << std::endl;
+   }
 }
 
 int main ()
@@ -41,6 +68,11 @@ int main ()
    float *a = new float[SIZE];
    float *b = new float[SIZE];
    float *c = new float[SIZE];
+
+   // Touch all the memory first to assure contiguous allocation
+   for (long ind = 0; ind < SIZE; ind++) a[ind] = 0.0f;
+   for (long ind = 0; ind < SIZE; ind++) b[ind] = 0.0f;
+   for (long ind = 0; ind < SIZE; ind++) c[ind] = 0.0f;
 
    long start;
    float time;

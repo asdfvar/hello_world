@@ -1,6 +1,6 @@
 CC = g++
 
-LIBS = -lpthread
+LIBS = -lpthread -O0
 
 OBJS = main.o  \
        timer.o \

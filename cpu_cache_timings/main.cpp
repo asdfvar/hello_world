@@ -13,7 +13,8 @@ Stress test
 #include <thread>
 #include "timer.h"
 
-#define SIZE 2147483648
+//#define SIZE 2147483648
+#define SIZE 100
 
 static void multiply (float *a, float *b, float *c, long size, long chunks)
 {
@@ -43,8 +44,8 @@ static void fill (float *a, float *b, long length)
 {
    const long pieces = 100;
 
-   long chunk_length    = length / pieces;
-   long remainder = length % pieces;
+   long chunk_length = length / pieces;
+   long remainder    = length % pieces;
 
    float *a_ptr = a;
    float *b_ptr = b;
@@ -79,7 +80,7 @@ int main ()
 
    start = startTime ();
 
-   int num_threads = 8;
+   int num_threads = std::thread::hardware_concurrency ();
 
    long sub_size  = SIZE / num_threads;
    long remainder = SIZE % num_threads;
@@ -108,7 +109,11 @@ int main ()
 
    std::cout << "initialization = " << time << std::endl;
 
-   for (long chunk_size = 1; chunk_size <= SIZE; chunk_size *= 2)
+   std::cout << std::endl;
+   std::cout << "size (bytes)" << std::setw (16) << "time (seconds)" << std::endl;
+   std::cout << "============" << std::setw (16) << "==============" << std::endl;
+
+   for (long chunk_size = 1; chunk_size <= SIZE; )
    {
       if (chunk_size > SIZE) chunk_size = SIZE;
 
@@ -120,10 +125,14 @@ int main ()
 
       time = endTime (start);
 
-      std::cout << "time for chunk size "
-         << chunk_size * 3 * 4
-         << " bytes " << std::setw (10)
-         <<  " = " << time << std::endl;
+      std::cout << chunk_size * 3 * 4
+         << std::setw (16)
+         << time << std::endl;
+
+      if (chunk_size < 32)
+         chunk_size++;
+      else
+         chunk_size *= 2;
    }
 
    delete[] a;

@@ -8,13 +8,16 @@ Stress test
 */
 
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <iomanip>
 #include <thread>
+#include <cmath>
 #include "timer.h"
 
 //#define SIZE 2147483648
-#define SIZE 100
+#define SIZE 214
+#define ARRAY_LENGTH 1000
 
 static void multiply (float *a, float *b, float *c, long size, long chunks)
 {
@@ -70,10 +73,18 @@ int main ()
    float *b = new float[SIZE];
    float *c = new float[SIZE];
 
+   float *S                = new float[ARRAY_LENGTH];
+   float *SS               = new float[ARRAY_LENGTH];
+   float *chunk_size_array = new float[ARRAY_LENGTH];
+
    // Touch all the memory first to assure contiguous allocation
    for (long ind = 0; ind < SIZE; ind++) a[ind] = 0.0f;
    for (long ind = 0; ind < SIZE; ind++) b[ind] = 0.0f;
    for (long ind = 0; ind < SIZE; ind++) c[ind] = 0.0f;
+
+   for (long ind = 0; ind < ARRAY_LENGTH; ind++) S[ind]  = 0.0f;
+   for (long ind = 0; ind < ARRAY_LENGTH; ind++) SS[ind] = 0.0f;
+   for (long ind = 0; ind < ARRAY_LENGTH; ind++) chunk_size_array[ind] = 0.0f;
 
    long start;
    float time;
@@ -109,35 +120,79 @@ int main ()
 
    std::cout << "initialization = " << time << std::endl;
 
-   std::cout << std::endl;
-   std::cout << "size (bytes)" << std::setw (16) << "time (seconds)" << std::endl;
-   std::cout << "============" << std::setw (16) << "==============" << std::endl;
+   // build statistics
 
-   for (long chunk_size = 1; chunk_size <= SIZE; )
+   int count = 0;
+   for (count = 0; count < 20; count++)
    {
-      if (chunk_size > SIZE) chunk_size = SIZE;
+      int ind = 0;
+      for (long chunk_size = 1; chunk_size <= SIZE; ind++)
+      {
+         if (chunk_size > SIZE) chunk_size = SIZE;
 
-      long chunks = SIZE / chunk_size;
+         long chunks = SIZE / chunk_size;
 
-      start = startTime ();
+         start = startTime ();
 
-      multiply (a, b, c, SIZE, chunks);
+         multiply (a, b, c, SIZE, chunks);
 
-      time = endTime (start);
+         time = endTime (start);
 
-      std::cout << chunk_size * 3 * 4
-         << std::setw (16)
-         << time << std::endl;
+         S[ind]                += time;
+         SS[ind]               += time * time;
+         chunk_size_array[ind]  = chunk_size;
 
-      if (chunk_size < 32)
-         chunk_size++;
-      else
-         chunk_size *= 2;
+         if (chunk_size < 100)
+            chunk_size++;
+         else if (chunk_size < 1000)
+            chunk_size += 10;
+         else if (chunk_size < 10000)
+            chunk_size += 100;
+         else if (chunk_size < 100000)
+            chunk_size += 1000;
+         else if (chunk_size < 1000000)
+            chunk_size += 10000;
+         else if (chunk_size < 10000000)
+            chunk_size += 100000;
+         else
+            chunk_size *= 2;
+      }
+
+      std::cout << "count " << count << " complete" << std::endl;
    }
+
+   std::ofstream results;
+   results.open ("results.txt");
+
+   results << "size (bytes)" << std::setw (16) << "time (seconds)" << std::setw (16) << "std" << std::endl;
+   results << "============" << std::setw (16) << "==============" << std::setw (16) << "===" << std::endl;
+
+   float fcount = (float)count;
+
+   for (int ind = 0; ind < ARRAY_LENGTH; ind++)
+   {
+      float ave = S[ind] / fcount;
+      float var = SS[ind] / fcount - ave * ave;
+
+      results
+         << chunk_size_array[ind] * 3 * 4
+         << ", "
+         << ave
+         << ", "
+         << sqrtf (var)
+         << std::endl;
+
+   }
+
+   results.close ();
 
    delete[] a;
    delete[] b;
    delete[] c;
+
+   delete[] S;
+   delete[] SS;
+   delete[] chunk_size_array;
 
    return 0;
 }

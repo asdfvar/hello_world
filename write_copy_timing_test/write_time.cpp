@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <unistd.h>
+#include <string.h>
 
 #define N 10000000
 
@@ -48,11 +49,22 @@ std::cout << __FILE__ << __LINE__ << ":time = " << time << std::endl;
 std::cout << __FILE__ << __LINE__ << ":time = " << time << std::endl;
 
    sleep (5.0f);
+
+   gettimeofday (&start, nullptr);
+   memcpy (y, x, N * sizeof (float));
+   gettimeofday (&end, nullptr);
+   time = (end.tv_sec * 1000000 + end.tv_usec - start.tv_sec * 1000000 - start.tv_usec) / 1000000.0f;
+std::cout << __FILE__ << __LINE__ << ":time = " << time << std::endl;
+
+   sleep (5.0f);
+
    gettimeofday (&start, nullptr);
    for (int ind = 0; ind < N; ind++) y[ind] = x[ind];
    gettimeofday (&end, nullptr);
    time = (end.tv_sec * 1000000 + end.tv_usec - start.tv_sec * 1000000 - start.tv_usec) / 1000000.0f;
 std::cout << __FILE__ << __LINE__ << ":time = " << time << std::endl;
+
+   sleep (5.0f);
 
    gettimeofday (&start, nullptr);
    delete[] x;

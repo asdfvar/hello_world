@@ -15,7 +15,8 @@ Stress test
 #include <cmath>
 #include "timer.h"
 
-#define SIZE 2147483648
+//#define SIZE 2147483648
+#define SIZE 200000000
 
 static void multiply (float *a, float *b, float *c, long size, long chunks)
 {

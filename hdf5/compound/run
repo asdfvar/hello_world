@@ -1,0 +1,4 @@
+#!/bin/bash
+
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/home/euler/user_libs/hdf5/hdf5_1p12p1/lib/
+./test

@@ -1,10 +1,10 @@
-OBJS = main.o
+all: fmadd256
 
-all: $(OBJS)
-	g++ $^ -o main
+fmadd256: fmadd256.o
+	g++ $^ -o fmadd256
 
 clean:
-	rm -fv $(OBJS) main
+	rm -fv *.o fmadd256
 
 %.o: %.cpp
 	g++ -march=native $^ -c

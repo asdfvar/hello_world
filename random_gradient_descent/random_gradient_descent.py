@@ -14,8 +14,21 @@ def evaluate_polynomial (coefficients, a, b, dx):
       x *= y
    return result
 
+def integrate_polynomial (coefficients, a, b):
+   new_coefficients = np.zeros (len (coefficients))
+   for ind in range (len (new_coefficients)):
+      new_coefficients[ind] = coefficients[ind] * (1 / (ind+1.0))
+
+   end = 0.0
+   start = 0.0
+   for ind in range (len (new_coefficients)):
+      start += new_coefficients[ind] * a**ind
+      end   += new_coefficients[ind] * b**ind
+
+   return end - start
+
 # Integrate via Simpson's rule
-def integrate (function, dx):
+def simpson (function, dx):
    result = function[0]            + \
    np.sum (4.0 * function[1:-2:2]) + \
    np.sum (2.0 * function[2:-2:2]) + \
@@ -27,11 +40,11 @@ degree = 3
 
 truth = 2.0 * np.random.rand (degree) - 1.0; dx = 0.0001
 fx = evaluate_polynomial (truth, 0.0, 1.0, dx)
-area = integrate (fx, dx)
+area = simpson (fx, dx)
 
 estimate = 2.0 * np.random.rand (degree) - 1.0
 gx = evaluate_polynomial (estimate, 0.0, 1.0, dx)
-final_error = integrate (np.abs (gx - fx), dx)
+final_error = simpson (np.abs (gx - fx), dx)
 
 plt_error = []
 
@@ -44,7 +57,7 @@ for itt in range (1000):
       offset /= la.norm (offset)
       offset *= step
       gx = evaluate_polynomial (estimate + offset, 0.0, 1.0, dx)
-      error = integrate (np.abs (gx - fx), dx)
+      error = simpson (np.abs (gx - fx), dx)
       if error < final_error:
          final_error = error
          final_offset = offset

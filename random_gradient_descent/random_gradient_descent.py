@@ -35,11 +35,11 @@ final_error = integrate (np.abs (gx - fx), dx)
 
 plt_error = []
 
-step = 0.1
-for itt in range (100):
+step = 1.0
+for itt in range (1000):
 
    found_improvement = False
-   for guess in range (1000):
+   for guess in range (100):
       offset = 2.0 * np.random.rand (degree) - 1.0
       offset /= la.norm (offset)
       offset *= step

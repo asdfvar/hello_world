@@ -1,7 +1,9 @@
 #!/usr/bin/bash
 
-cmake -DCMAKE_VERBOSE_MAKEFILE=ON -S . -B build
+cmake -S . -B build
 
 cd build
 
 cmake --build .
+
+cmake --install . --prefix $PWD

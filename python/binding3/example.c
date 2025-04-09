@@ -1,9 +1,13 @@
 #include <stdio.h>
 
-int add (int a, int b) {
-   return a + b;
-}
+extern "C" {
 
-void greet (const char* name) {
-   printf ("Hello, %s!\n", name);
+   int add (int a, int b) {
+      return a + b;
+   }
+
+   void greet (const char* name) {
+      printf ("Hello, %s!\n", name);
+   }
+
 }

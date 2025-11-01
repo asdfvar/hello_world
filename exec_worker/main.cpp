@@ -4,21 +4,31 @@
 #include <queue>
 #include <functional>
 #include <condition_variable>
+#include <iostream>
+#include <string>
+#include <chrono>
+
+std::mutex print_mutex;
+void thread_print (const std::string& message) {
+   std::lock_guard<std::mutex> lock (print_mutex);
+   std::cout << message << std::endl;
+}
 
 class Semaphore {
    public:
-      explicit Semaphore (int initial_count = 0) : count_(initial_count) {}
+      explicit Semaphore (int initial_count = 0) : count_ (initial_count) {}
 
-      void wait () {
-         std::unique_lock<std::mutex> lock(mutex_);
-         cv_.wait(lock, [this] { return count_ > 0; });
+      void wait (int id) {
+         std::unique_lock<std::mutex> lock (mutex_);
+thread_print (std::to_string (id) + ": Waiting with wait count = " + std::to_string (count_));
+         cv_.wait (lock, [this] { return count_ > 0; });
          count_--;
       }
 
       void post () {
          std::unique_lock<std::mutex> lock(mutex_);
          count_++;
-         cv_.notify_one(); // Or notify_all() if multiple threads can proceed
+         cv_.notify_one ();
       }
 
    private:
@@ -51,6 +61,8 @@ struct ExecutiveControl
 
 struct DataNode {
    Data data;
+   int check;
+   bool finish;
 };
 
 // Setter
@@ -59,16 +71,27 @@ void setter (
       std::queue<DataNode>& setterDataPool,
       ExecutiveControl& exeControl)
 {
-   while (!exeControl.finish)
+   DataNode dataNode;
+   dataNode.finish = false;
+
+   while (!exeControl.finish && !dataNode.finish)
    {
-      exeControl.execDataPoolHasElement.wait ();
+      exeControl.execDataPoolHasElement.wait (__LINE__);
       {
          std::lock_guard (exeControl.execPoolAccessLock);
+         std::lock_guard (exeControl.setterPoolAccessLock);
 
-         // Set the node element
-
-         exeControl.setterDataPoolHasElement.post ();
+         dataNode = execDataPool.front (); execDataPool.pop ();
          exeControl.queueSizeLimit.post ();
+
+         setterDataPool.push (dataNode);
+
+         thread_print ("front check value = " + std::to_string (setterDataPool.front ().check));
+         exeControl.setterDataPoolHasElement.post ();
+
+         thread_print ("moved " + std::to_string (dataNode.check) + " from exec-queue to setter-queue. Finish = " + std::to_string (dataNode.finish));
+
+         std::this_thread::sleep_for (std::chrono::milliseconds (200));
       }
    }
 }
@@ -79,23 +102,26 @@ void getter (
       std::queue<DataNode>& getterDataPool,
       ExecutiveControl& exeControl)
 {
-   while (!exeControl.finish)
-   {
-      DataNode dataNode = setterDataPool.front ();
+   DataNode dataNode;
+   dataNode.finish = false;
 
+   while (!exeControl.finish && !dataNode.finish)
+   {
       // wait until the front of the dataPool is set
-      exeControl.setterDataPoolHasElement.wait ();
+      exeControl.setterDataPoolHasElement.wait (__LINE__);
       {
-         std::lock_guard (exeControl.execPoolAccessLock);
+         std::lock_guard (exeControl.setterPoolAccessLock);
 
          // Get the data node
          dataNode = setterDataPool.front ();
          setterDataPool.pop ();
 
+         thread_print ("set data pool for index " + std::to_string (dataNode.check));
+
          getterDataPool.push (dataNode);
+
          exeControl.getterDataPoolHasElement.post ();
       }
-
    }
 }
 
@@ -118,7 +144,7 @@ int main ()
    for (int ind = 0; ind < num_setters; ind++)
       setters.push_back (
             std::thread (
-               std::ref (setter),
+               setter,
                std::ref (execDataPool),
                std::ref (setterDataPool),
                std::ref (exeControl)));
@@ -126,24 +152,34 @@ int main ()
    for (int ind = 0; ind < num_getters; ind++)
       getters.push_back (
             std::thread (
-               std::ref (getter),
+               getter,
                std::ref (setterDataPool),
                std::ref (getterDataPool),
                std::ref (exeControl)));
 
-   for (int read = 0; read < numReads; read++)
+   // Executive
    {
-      // Add an item to the data queue
-      exeControl.queueSizeLimit.wait ();
+      for (int read = 0; read < numReads; read++)
+      {
+         thread_print ("reading index " + std::to_string (read));
 
-      std::lock_guard (exeControl.execPoolAccessLock);
+         // Add an item to the data queue
+         exeControl.queueSizeLimit.wait (__LINE__);
 
-      DataNode dataNode;
-      execDataPool.push (dataNode);
-      exeControl.execDataPoolHasElement.post ();
+         std::lock_guard (exeControl.execPoolAccessLock);
+
+         DataNode dataNode;
+         dataNode.check = read;
+         dataNode.finish = read >= numReads - setters.size() ? true : false;
+
+         execDataPool.push (dataNode);
+         exeControl.execDataPoolHasElement.post ();
+      }
+
+      std::this_thread::sleep_for (std::chrono::milliseconds (1000));
+
+      exeControl.finish = true;
    }
-
-   exeControl.finish = true;
 
    for (std::thread& setterThread : setters) setterThread.join ();
    for (std::thread& getterThread : getters) getterThread.join ();

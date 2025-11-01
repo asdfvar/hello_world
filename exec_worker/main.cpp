@@ -48,7 +48,9 @@ struct ExecutiveControl
       queueSizeLimit (20),
       execDataPoolHasElement (0),
       setterDataPoolHasElement (0),
-      getterDataPoolHasElement (0) { }
+      getterDataPoolHasElement (0),
+      setter_time_ms (0),
+      getter_time_ms (0) { }
 
    bool finish;
    Semaphore queueSizeLimit;
@@ -78,7 +80,6 @@ void setter (
    while (!exeControl.finish && !dataNode.finish)
    {
       exeControl.execDataPoolHasElement.wait (__LINE__);
-      auto start = std::chrono::high_resolution_clock::now ();
       {
          std::lock_guard (exeControl.execPoolAccessLock);
 
@@ -86,8 +87,16 @@ void setter (
          exeControl.queueSizeLimit.post ();
       }
 
+      auto start = std::chrono::high_resolution_clock::now ();
+
       // Emulate processing load
       std::this_thread::sleep_for (std::chrono::milliseconds (200));
+
+      auto end = std::chrono::high_resolution_clock::now ();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - start);
+      std::cout << "Duration = " << duration.count () << std::endl;
+      exeControl.setter_time_ms = static_cast<unsigned int> (duration.count ());
+      std::cout << "Setter time = " << exeControl.setter_time_ms << std::endl;
 
       {
          std::lock_guard (exeControl.setterPoolAccessLock);
@@ -98,9 +107,6 @@ void setter (
       exeControl.setterDataPoolHasElement.post ();
 
       thread_print ("moved " + std::to_string (dataNode.check) + " from exec-queue to setter-queue. Finish = " + std::to_string (dataNode.finish));
-
-      auto end = std::chrono::high_resolution_clock::now ();
-      exeControl.setter_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count ();
    }
 }
 
@@ -117,7 +123,6 @@ void getter (
    {
       // wait until the front of the dataPool is set
       exeControl.setterDataPoolHasElement.wait (__LINE__);
-      auto start = std::chrono::high_resolution_clock::now ();
       {
          std::lock_guard (exeControl.setterPoolAccessLock);
 
@@ -125,16 +130,16 @@ void getter (
          dataNode = setterDataPool.front (); setterDataPool.pop ();
       }
 
+      auto start = std::chrono::high_resolution_clock::now ();
       // Emulate processing load
       std::this_thread::sleep_for (std::chrono::milliseconds (200));
+      auto end = std::chrono::high_resolution_clock::now ();
+      exeControl.getter_time_ms = static_cast<unsigned int> (std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count ());
 
       thread_print ("set data pool for index " + std::to_string (dataNode.check));
 
       getterDataPool.push (dataNode);
       exeControl.getterDataPoolHasElement.post ();
-
-      auto end = std::chrono::high_resolution_clock::now ();
-      exeControl.getter_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count ();
    }
 }
 
@@ -149,7 +154,7 @@ int main ()
 
    const int num_setters = 3;
    const int num_getters = 2;
-   const int numReads = 1000;
+   const int numReads = 40;
 
    ExecutiveControl exeControl;
    exeControl.finish = false;
@@ -176,17 +181,32 @@ int main ()
       {
          thread_print ("reading index " + std::to_string (read));
 
+         // TODO: make these variables thread safe
+         // Check the timing
+         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10)
+         {
+            std::lock_guard (exeControl.execPoolAccessLock);
+            setters.push_back (
+                  std::thread (
+                     setter,
+                     std::ref (execDataPool),
+                     std::ref (setterDataPool),
+                     std::ref (exeControl)));
+            thread_print ("Increasing the number of setters because time to set per thread = " + std::to_string (exeControl.setter_time_ms));
+         }
+
          // Add an item to the data queue
          exeControl.queueSizeLimit.wait (__LINE__);
+         {
+            std::lock_guard (exeControl.execPoolAccessLock);
 
-         std::lock_guard (exeControl.execPoolAccessLock);
+            DataNode dataNode;
+            dataNode.check = read;
+            dataNode.finish = read >= numReads - setters.size() ? true : false;
 
-         DataNode dataNode;
-         dataNode.check = read;
-         dataNode.finish = read >= numReads - setters.size() ? true : false;
-
-         execDataPool.push (dataNode);
-         exeControl.execDataPoolHasElement.post ();
+            execDataPool.push (dataNode);
+            exeControl.execDataPoolHasElement.post ();
+         }
       }
 
       exeControl.finish = true;

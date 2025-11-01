@@ -20,7 +20,7 @@ class Semaphore {
 
       void wait (int id) {
          std::unique_lock<std::mutex> lock (mutex_);
-thread_print (std::to_string (id) + ": Waiting with wait count = " + std::to_string (count_));
+         thread_print (std::to_string (id) + ": Waiting with wait count = " + std::to_string (count_));
          cv_.wait (lock, [this] { return count_ > 0; });
          count_--;
       }
@@ -57,6 +57,7 @@ struct ExecutiveControl
    Semaphore getterDataPoolHasElement;
    std::mutex execPoolAccessLock;
    std::mutex setterPoolAccessLock;
+   unsigned int setter_time_ms, getter_time_ms;
 };
 
 struct DataNode {
@@ -77,22 +78,29 @@ void setter (
    while (!exeControl.finish && !dataNode.finish)
    {
       exeControl.execDataPoolHasElement.wait (__LINE__);
+      auto start = std::chrono::high_resolution_clock::now ();
       {
          std::lock_guard (exeControl.execPoolAccessLock);
-         std::lock_guard (exeControl.setterPoolAccessLock);
 
          dataNode = execDataPool.front (); execDataPool.pop ();
          exeControl.queueSizeLimit.post ();
-
-         setterDataPool.push (dataNode);
-
-         thread_print ("front check value = " + std::to_string (setterDataPool.front ().check));
-         exeControl.setterDataPoolHasElement.post ();
-
-         thread_print ("moved " + std::to_string (dataNode.check) + " from exec-queue to setter-queue. Finish = " + std::to_string (dataNode.finish));
-
-         std::this_thread::sleep_for (std::chrono::milliseconds (200));
       }
+
+      // Emulate processing load
+      std::this_thread::sleep_for (std::chrono::milliseconds (200));
+
+      {
+         std::lock_guard (exeControl.setterPoolAccessLock);
+         setterDataPool.push (dataNode);
+      }
+
+      thread_print ("front check value = " + std::to_string (setterDataPool.front ().check));
+      exeControl.setterDataPoolHasElement.post ();
+
+      thread_print ("moved " + std::to_string (dataNode.check) + " from exec-queue to setter-queue. Finish = " + std::to_string (dataNode.finish));
+
+      auto end = std::chrono::high_resolution_clock::now ();
+      exeControl.setter_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count ();
    }
 }
 
@@ -109,19 +117,24 @@ void getter (
    {
       // wait until the front of the dataPool is set
       exeControl.setterDataPoolHasElement.wait (__LINE__);
+      auto start = std::chrono::high_resolution_clock::now ();
       {
          std::lock_guard (exeControl.setterPoolAccessLock);
 
          // Get the data node
-         dataNode = setterDataPool.front ();
-         setterDataPool.pop ();
-
-         thread_print ("set data pool for index " + std::to_string (dataNode.check));
-
-         getterDataPool.push (dataNode);
-
-         exeControl.getterDataPoolHasElement.post ();
+         dataNode = setterDataPool.front (); setterDataPool.pop ();
       }
+
+      // Emulate processing load
+      std::this_thread::sleep_for (std::chrono::milliseconds (200));
+
+      thread_print ("set data pool for index " + std::to_string (dataNode.check));
+
+      getterDataPool.push (dataNode);
+      exeControl.getterDataPoolHasElement.post ();
+
+      auto end = std::chrono::high_resolution_clock::now ();
+      exeControl.getter_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count ();
    }
 }
 
@@ -136,7 +149,7 @@ int main ()
 
    const int num_setters = 3;
    const int num_getters = 2;
-   const int numReads = 8;
+   const int numReads = 1000;
 
    ExecutiveControl exeControl;
    exeControl.finish = false;
@@ -175,8 +188,6 @@ int main ()
          execDataPool.push (dataNode);
          exeControl.execDataPoolHasElement.post ();
       }
-
-      std::this_thread::sleep_for (std::chrono::milliseconds (1000));
 
       exeControl.finish = true;
    }

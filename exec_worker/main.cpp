@@ -52,17 +52,10 @@ struct ExecutiveControl
 {
    ExecutiveControl () :
       dataQueueSize (6), // must be set to the same value as above
-      setterDataPoolHasElement (0),
-      getterDataPoolHasElement (0),
       setter_time_ms (0),
       getter_time_ms (0) { }
 
    unsigned int dataQueueSize;
-   Semaphore setterDataPoolHasElement;
-   Semaphore getterDataPoolHasElement;
-   std::mutex execPoolAccessLock;
-   std::mutex setterPoolAccessLock;
-   std::mutex getterPoolAccessLock;
    unsigned int setter_time_ms, getter_time_ms;
 };
 

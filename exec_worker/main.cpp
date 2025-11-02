@@ -102,6 +102,24 @@ class DataPool
       bool enforceSizeLimit;
 };
 
+class Timer {
+   public:
+      Timer (unsigned int& count) : count_ (&count)
+   {
+      start_ = std::chrono::high_resolution_clock::now ();
+   }
+
+      ~Timer () {
+         end_ = std::chrono::high_resolution_clock::now ();
+         auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end_ - start_);
+         *count_ = static_cast<unsigned int> (duration.count ());
+      }
+
+   private:
+      unsigned int* count_;
+      std::chrono::time_point<std::chrono::high_resolution_clock> start_, end_;
+};
+
 // Setter
 void setter (
       DataPool& execDataPool,
@@ -125,11 +143,10 @@ void setter (
          auto start = std::chrono::high_resolution_clock::now ();
 
          // Emulate processing load
-         std::this_thread::sleep_for (std::chrono::milliseconds (200));
-
-         auto end = std::chrono::high_resolution_clock::now ();
-         auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - start);
-         exeControl.setter_time_ms = static_cast<unsigned int> (duration.count ());
+         {
+            Timer timer (exeControl.setter_time_ms);
+            std::this_thread::sleep_for (std::chrono::milliseconds (200));
+         }
 
          setterDataPool << dataNode;
 
@@ -153,17 +170,13 @@ void getter (
 
       if (dataNode.selection == Selection::ProcessNode)
       {
-         auto start = std::chrono::high_resolution_clock::now ();
-
          // Emulate processing load
-         std::this_thread::sleep_for (std::chrono::milliseconds (200));
-
-         auto end = std::chrono::high_resolution_clock::now ();
-         auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - start);
-         exeControl.getter_time_ms = static_cast<unsigned int> (duration.count ());
+         {
+            Timer timer (exeControl.getter_time_ms);
+            std::this_thread::sleep_for (std::chrono::milliseconds (200));
+         }
 
          thread_print (std::to_string (__LINE__) + ": Processing data node " + std::to_string (dataNode.check));
-
          getterDataPool << dataNode;
       }
    } while (dataNode.selection != Selection::FinishGetter);
@@ -208,7 +221,6 @@ int main ()
 
          // TODO: make these variables thread safe
          // Check the timing and increase the number of setters or getters appropriately
-thread_print (std::to_string (__LINE__) + ": setter_time_ms = " + std::to_string (exeControl.setter_time_ms));
          if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () < exeControl.dataQueueSize)
          {
             setters.push_back (
@@ -217,11 +229,8 @@ thread_print (std::to_string (__LINE__) + ": setter_time_ms = " + std::to_string
                      std::ref (execDataPool),
                      std::ref (setterDataPool),
                      std::ref (exeControl)));
-
-            thread_print ("Increasing the number of setters because time to set per thread = " + std::to_string (exeControl.setter_time_ms));
          }
 
-thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string (exeControl.getter_time_ms));
          if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && getters.size () < exeControl.dataQueueSize)
          {
             getters.push_back (
@@ -230,7 +239,6 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
                      std::ref (setterDataPool),
                      std::ref (getterDataPool),
                      std::ref (exeControl)));
-            thread_print (std::to_string (__LINE__) + ": Increasing the number of getters because time to set per thread = " + std::to_string (exeControl.getter_time_ms));
          }
 
          // Add an item to the data queue

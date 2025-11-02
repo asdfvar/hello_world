@@ -77,6 +77,32 @@ struct DataNode {
    Selection selection;
 };
 
+class DataPool
+{
+   public:
+      DataPool (int size) : hasElement (size) { }
+
+      DataNode pop () {
+         std::lock_guard<std::mutex> local_lock (lock);
+         DataNode dataNode = dataPool.front ();
+         dataPool.pop ();
+         queueSize.post ();
+         return dataNode;
+      }
+
+      void operator<< (DataNode& dataNode) {
+         std::lock_guard<std::mutex> local_lock (lock);
+         dataPool.push (dataNode);
+         hasElement.post ();
+      }
+
+   private:
+      std::mutex lock;
+      std::queue<DataNode> dataPool;
+      Semaphore queueSize;
+      Semaphore hasElement;
+};
+
 // Setter
 void setter (
       std::queue<DataNode>& execDataPool,
@@ -90,7 +116,6 @@ void setter (
       exeControl.execDataPoolHasElement.wait ();
       {
          std::lock_guard (exeControl.execPoolAccessLock);
-
          dataNode = execDataPool.front (); execDataPool.pop ();
          exeControl.queueSizeSem.post ();
       }

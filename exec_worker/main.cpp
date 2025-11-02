@@ -20,9 +20,8 @@ class Semaphore {
    public:
       explicit Semaphore (int initial_count = 0) : count_ (initial_count) {}
 
-      void wait (int id) {
+      void wait () {
          std::unique_lock<std::mutex> lock (mutex_);
-         thread_print (std::to_string (id) + ": Waiting with wait count = " + std::to_string (count_));
          cv_.wait (lock, [this] { return count_ > 0; });
          count_--;
       }
@@ -87,7 +86,7 @@ void setter (
 
    do {
       // Get the data node
-      exeControl.execDataPoolHasElement.wait (__LINE__);
+      exeControl.execDataPoolHasElement.wait ();
       {
          std::lock_guard (exeControl.execPoolAccessLock);
 
@@ -116,10 +115,10 @@ void setter (
          {
             std::lock_guard (exeControl.setterPoolAccessLock);
             setterDataPool.push (dataNode);
+            exeControl.setterDataPoolHasElement.post ();
          }
 
          thread_print ("front check value = " + std::to_string (setterDataPool.front ().check));
-         exeControl.setterDataPoolHasElement.post ();
 
          thread_print ("moved " + std::to_string (dataNode.check) + " from exec-queue to setter-queue. Finish = " + std::to_string (dataNode.finish));
       }
@@ -136,7 +135,7 @@ void getter (
 
    do {
       // wait until the front of the dataPool is set
-      exeControl.setterDataPoolHasElement.wait (__LINE__);
+      exeControl.setterDataPoolHasElement.wait ();
       {
          std::lock_guard (exeControl.setterPoolAccessLock);
 
@@ -226,7 +225,7 @@ int main ()
          }
 
          // Add an item to the data queue
-         exeControl.queueSizeSem.wait (__LINE__);
+         exeControl.queueSizeSem.wait ();
          {
             DataNode dataNode;
             dataNode.check = read;
@@ -240,8 +239,8 @@ int main ()
 
       // Shutdown
 
-      thread_print (std::to_string (__LINE__) + " setters.size () = " + std::to_string (setters.size ()));
-      thread_print (std::to_string (__LINE__) + " getters.size () = " + std::to_string (getters.size ()));
+      thread_print (std::to_string (__LINE__) + ": setters.size () = " + std::to_string (setters.size ()));
+      thread_print (std::to_string (__LINE__) + ": getters.size () = " + std::to_string (getters.size ()));
 
       for (int ind = 0; ind < getters.size (); ind++) {
          DataNode dataNode;

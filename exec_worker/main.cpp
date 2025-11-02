@@ -80,30 +80,31 @@ struct DataNode {
 class DataPool
 {
    public:
-      DataPool (int size) : hasElement (size), enforceSize (true) { }
-      DataPool () : hasElement (0), enforceSize (false) { }
+      DataPool (int size) : queueSizeLimit (size), enforceSizeLimit (true) { }
+      DataPool () : enforceSizeLimit (false) { }
 
       DataNode pop () {
-         if (enforceSize) hasElement.wait ();
+         hasElement.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
          DataNode dataNode = dataPool.front ();
          dataPool.pop ();
-         queueSize.post ();
+//         if (enforceSizeLimit) queueSizeLimit.post ();
          return dataNode;
       }
 
       void operator<< (DataNode dataNode) {
+//         if (enforceSizeLimit) queueSizeLimit.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
          dataPool.push (dataNode);
-         if (enforceSize) hasElement.post ();
+         hasElement.post ();
       }
 
    private:
       std::mutex lock;
       std::queue<DataNode> dataPool;
-      Semaphore queueSize;
+      Semaphore queueSizeLimit;
       Semaphore hasElement;
-      bool enforceSize;
+      bool enforceSizeLimit;
 };
 
 // Setter
@@ -117,12 +118,17 @@ void setter (
 
    do {
       // Get the data node
+
+#if 1
       exeControl.execDataPoolHasElement.wait ();
       {
          std::lock_guard (exeControl.execPoolAccessLock);
          dataNode = execDataPool.front (); execDataPool.pop ();
          exeControl.queueSizeSem.post ();
       }
+#else
+      dataNode = execDataPool_new.pop ();
+#endif
 
       if (dataNode.selection == Selection::FinishGetter)
       {
@@ -282,6 +288,7 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
       thread_print (std::to_string (__LINE__) + ": getters.size () = " + std::to_string (getters.size ()));
 
       for (int ind = 0; ind < getters.size (); ind++) {
+         exeControl.queueSizeSem.wait ();
          DataNode dataNode;
          dataNode.selection = Selection::FinishGetter;
 
@@ -292,6 +299,7 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
       }
 
       for (int ind = 0; ind < setters.size (); ind++) {
+         exeControl.queueSizeSem.wait ();
          DataNode dataNode;
          dataNode.selection = Selection::FinishSetter;
 

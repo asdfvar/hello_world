@@ -80,10 +80,11 @@ struct DataNode {
 class DataPool
 {
    public:
-      DataPool (int size) : hasElement (size) { }
+      DataPool (int size) : hasElement (size), enforceSize (true) { }
+      DataPool () : hasElement (0), enforceSize (false) { }
 
       DataNode pop () {
-         hasElement.wait ();
+         if (enforceSize) hasElement.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
          DataNode dataNode = dataPool.front ();
          dataPool.pop ();
@@ -91,10 +92,10 @@ class DataPool
          return dataNode;
       }
 
-      void operator<< (DataNode& dataNode) {
+      void operator<< (DataNode dataNode) {
          std::lock_guard<std::mutex> local_lock (lock);
          dataPool.push (dataNode);
-         hasElement.post ();
+         if (enforceSize) hasElement.post ();
       }
 
    private:
@@ -102,11 +103,13 @@ class DataPool
       std::queue<DataNode> dataPool;
       Semaphore queueSize;
       Semaphore hasElement;
+      bool enforceSize;
 };
 
 // Setter
 void setter (
       std::queue<DataNode>& execDataPool,
+      DataPool& execDataPool_new,
       std::queue<DataNode>& setterDataPool,
       ExecutiveControl& exeControl)
 {
@@ -195,6 +198,7 @@ void getter (
 int main ()
 {
    std::queue<DataNode> execDataPool;
+   DataPool execDataPool_new (6);
    std::queue<DataNode> setterDataPool;
    std::queue<DataNode> getterDataPool;
 
@@ -212,6 +216,7 @@ int main ()
             std::thread (
                setter,
                std::ref (execDataPool),
+               std::ref (execDataPool_new),
                std::ref (setterDataPool),
                std::ref (exeControl)));
 
@@ -238,6 +243,7 @@ thread_print (std::to_string (__LINE__) + ": setter_time_ms = " + std::to_string
                   std::thread (
                      setter,
                      std::ref (execDataPool),
+                     std::ref (execDataPool_new),
                      std::ref (setterDataPool),
                      std::ref (exeControl)));
 
@@ -266,6 +272,7 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
             std::lock_guard (exeControl.execPoolAccessLock);
             execDataPool.push (dataNode);
             exeControl.execDataPoolHasElement.post ();
+            execDataPool_new << dataNode;
          }
       }
 
@@ -281,6 +288,7 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
          std::lock_guard (exeControl.execPoolAccessLock);
          execDataPool.push (dataNode);
          exeControl.execDataPoolHasElement.post ();
+         execDataPool_new << dataNode;
       }
 
       for (int ind = 0; ind < setters.size (); ind++) {
@@ -290,6 +298,7 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
          std::lock_guard (exeControl.execPoolAccessLock);
          execDataPool.push (dataNode);
          exeControl.execDataPoolHasElement.post ();
+         execDataPool_new << dataNode;
       }
    }
 

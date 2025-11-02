@@ -66,6 +66,7 @@ struct ExecutiveControl
    Semaphore getterDataPoolHasElement;
    std::mutex execPoolAccessLock;
    std::mutex setterPoolAccessLock;
+   std::mutex getterPoolAccessLock;
    unsigned int setter_time_ms, getter_time_ms;
 };
 
@@ -156,8 +157,11 @@ void getter (
 
          thread_print (std::to_string (__LINE__) + ": Processing data node " + std::to_string (dataNode.check));
 
-         getterDataPool.push (dataNode);
-         exeControl.getterDataPoolHasElement.post ();
+         {
+            std::lock_guard (exeControl.getterPoolAccessLock);
+            getterDataPool.push (dataNode);
+            exeControl.getterDataPoolHasElement.post ();
+         }
       }
    } while (dataNode.selection != Selection::FinishGetter);
 }
@@ -173,7 +177,7 @@ int main ()
 
    const int num_setters = 1;
    const int num_getters = 1;
-   const int numReads = 30;
+   const int numReads = 20;
 
    ExecutiveControl exeControl;
 

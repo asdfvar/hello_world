@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <chrono>
+#include <stdexcept>
 
 std::mutex print_mutex;
 void thread_print (const std::string& message) {
@@ -69,10 +70,11 @@ struct DataNode {
 class DataPool
 {
    public:
-      DataPool (int size) : queueSizeLimit (size), enforceSizeLimit (true) { }
+      DataPool (int size) : sizeLimit_ (size), queueSizeLimit (size), enforceSizeLimit (true) { }
       DataPool () : enforceSizeLimit (false) { }
 
-      DataNode pop () {
+      DataNode pop () noexcept
+      {
          hasElement.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
          DataNode dataNode = dataPool.front ();
@@ -81,23 +83,34 @@ class DataPool
          return dataNode;
       }
 
-      void operator<< (DataNode& dataNode) {
+      void operator<< (DataNode& dataNode) noexcept
+      {
          if (enforceSizeLimit) queueSizeLimit.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
          dataPool.push (dataNode);
          hasElement.post ();
       }
 
-      DataNode front ()
+      DataNode front () noexcept
       {
          std::lock_guard<std::mutex> local_lock (lock);
          return dataPool.front ();
+      }
+
+      int sizeLimit ()
+      {
+         if (!enforceSizeLimit)
+            throw std::runtime_error ("Error: attempting to access the sizeLimit for a queue with no defined limit");
+
+         std::lock_guard<std::mutex> local_lock (lock);
+         return sizeLimit_;
       }
 
    private:
       std::mutex lock;
       std::queue<DataNode> dataPool;
       Semaphore queueSizeLimit;
+      int sizeLimit_;
       Semaphore hasElement;
       bool enforceSizeLimit;
 };
@@ -219,9 +232,8 @@ int main ()
       {
          thread_print ("reading index " + std::to_string (read));
 
-         // TODO: make these variables thread safe
          // Check the timing and increase the number of setters or getters appropriately
-         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () < exeControl.dataQueueSize)
+         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () < execDataPool.sizeLimit ())
          {
             setters.push_back (
                   std::thread (
@@ -231,7 +243,7 @@ int main ()
                      std::ref (exeControl)));
          }
 
-         if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && getters.size () < exeControl.dataQueueSize)
+         if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && getters.size () < execDataPool.sizeLimit ())
          {
             getters.push_back (
                   std::thread (

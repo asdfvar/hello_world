@@ -31,6 +31,11 @@ class Semaphore {
          cv_.notify_one ();
       }
 
+      int size () {
+         std::unique_lock<std::mutex> lock(mutex_);
+         return count_;
+      }
+
    private:
       std::mutex mutex_;
       std::condition_variable cv_;
@@ -45,15 +50,16 @@ struct Data {
 struct ExecutiveControl
 {
    ExecutiveControl () :
-      queueSizeLimit (20),
+      queueSizeSem (10),
+      queueSize (10), // must be set to the same value as above
       execDataPoolHasElement (0),
       setterDataPoolHasElement (0),
       getterDataPoolHasElement (0),
       setter_time_ms (0),
       getter_time_ms (0) { }
 
-   bool finish;
-   Semaphore queueSizeLimit;
+   Semaphore queueSizeSem;
+   unsigned int queueSize;
    Semaphore execDataPoolHasElement;
    Semaphore setterDataPoolHasElement;
    Semaphore getterDataPoolHasElement;
@@ -77,14 +83,14 @@ void setter (
    DataNode dataNode;
    dataNode.finish = false;
 
-   while (!exeControl.finish && !dataNode.finish)
+   while (!dataNode.finish)
    {
       exeControl.execDataPoolHasElement.wait (__LINE__);
       {
          std::lock_guard (exeControl.execPoolAccessLock);
 
          dataNode = execDataPool.front (); execDataPool.pop ();
-         exeControl.queueSizeLimit.post ();
+         exeControl.queueSizeSem.post ();
       }
 
       auto start = std::chrono::high_resolution_clock::now ();
@@ -94,9 +100,7 @@ void setter (
 
       auto end = std::chrono::high_resolution_clock::now ();
       auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - start);
-      std::cout << "Duration = " << duration.count () << std::endl;
       exeControl.setter_time_ms = static_cast<unsigned int> (duration.count ());
-      std::cout << "Setter time = " << exeControl.setter_time_ms << std::endl;
 
       {
          std::lock_guard (exeControl.setterPoolAccessLock);
@@ -119,7 +123,7 @@ void getter (
    DataNode dataNode;
    dataNode.finish = false;
 
-   while (!exeControl.finish && !dataNode.finish)
+   while (!dataNode.finish)
    {
       // wait until the front of the dataPool is set
       exeControl.setterDataPoolHasElement.wait (__LINE__);
@@ -131,10 +135,13 @@ void getter (
       }
 
       auto start = std::chrono::high_resolution_clock::now ();
+
       // Emulate processing load
       std::this_thread::sleep_for (std::chrono::milliseconds (200));
+
       auto end = std::chrono::high_resolution_clock::now ();
-      exeControl.getter_time_ms = static_cast<unsigned int> (std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count ());
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - start);
+      exeControl.getter_time_ms = static_cast<unsigned int> (duration.count ());
 
       thread_print ("set data pool for index " + std::to_string (dataNode.check));
 
@@ -152,12 +159,11 @@ int main ()
    std::vector<std::thread> setters;
    std::vector<std::thread> getters;
 
-   const int num_setters = 3;
-   const int num_getters = 2;
-   const int numReads = 40;
+   const int num_setters = 1;
+   const int num_getters = 1;
+   const int numReads = 20;
 
    ExecutiveControl exeControl;
-   exeControl.finish = false;
 
    for (int ind = 0; ind < num_setters; ind++)
       setters.push_back (
@@ -181,22 +187,35 @@ int main ()
       {
          thread_print ("reading index " + std::to_string (read));
 
+#if 0
          // TODO: make these variables thread safe
-         // Check the timing
-         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10)
+         // Check the timing and increase the number of setters or getters appropriately
+         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () + getters.size () < exeControl.queueSize)
          {
-            std::lock_guard (exeControl.execPoolAccessLock);
             setters.push_back (
                   std::thread (
                      setter,
                      std::ref (execDataPool),
                      std::ref (setterDataPool),
                      std::ref (exeControl)));
+
             thread_print ("Increasing the number of setters because time to set per thread = " + std::to_string (exeControl.setter_time_ms));
          }
 
+         if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && setters.size () + getters.size () < exeControl.queueSize)
+         {
+            getters.push_back (
+                  std::thread (
+                     getter,
+                     std::ref (setterDataPool),
+                     std::ref (getterDataPool),
+                     std::ref (exeControl)));
+            thread_print ("Increasing the number of getters because time to set per thread = " + std::to_string (exeControl.getter_time_ms));
+         }
+#endif
+
          // Add an item to the data queue
-         exeControl.queueSizeLimit.wait (__LINE__);
+         exeControl.queueSizeSem.wait (__LINE__);
          {
             std::lock_guard (exeControl.execPoolAccessLock);
 
@@ -208,12 +227,16 @@ int main ()
             exeControl.execDataPoolHasElement.post ();
          }
       }
-
-      exeControl.finish = true;
    }
+
+   size_t setters_size = setters.size ();
+   size_t getters_size = getters.size ();
 
    for (std::thread& setterThread : setters) setterThread.join ();
    for (std::thread& getterThread : getters) getterThread.join ();
+
+   thread_print ("setters.size () = " + std::to_string (setters_size));
+   thread_print ("getters.size () = " + std::to_string (getters_size));
 
    return 0;
 }

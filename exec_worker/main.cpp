@@ -83,6 +83,7 @@ class DataPool
       DataPool (int size) : hasElement (size) { }
 
       DataNode pop () {
+         hasElement.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
          DataNode dataNode = dataPool.front ();
          dataPool.pop ();

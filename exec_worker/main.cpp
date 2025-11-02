@@ -111,8 +111,8 @@ class DataPool
 
 // Setter
 void setter (
-      DataPool& execDataPool_new,
-      DataPool& setterDataPool_new,
+      DataPool& execDataPool,
+      DataPool& setterDataPool,
       ExecutiveControl& exeControl)
 {
    DataNode dataNode;
@@ -120,11 +120,11 @@ void setter (
    do {
       // Get the data node
 
-      dataNode = execDataPool_new.pop ();
+      dataNode = execDataPool.pop ();
 
       if (dataNode.selection == Selection::FinishGetter)
       {
-         setterDataPool_new << dataNode;
+         setterDataPool << dataNode;
       }
       else if (dataNode.selection == Selection::ProcessNode)
       {
@@ -138,9 +138,9 @@ void setter (
          auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - start);
          exeControl.setter_time_ms = static_cast<unsigned int> (duration.count ());
 
-         setterDataPool_new << dataNode;
+         setterDataPool << dataNode;
 
-         thread_print ("front check value = " + std::to_string (setterDataPool_new.front ().check));
+         thread_print ("front check value = " + std::to_string (setterDataPool.front ().check));
 
          thread_print ("moved " + std::to_string (dataNode.check) + " from exec-queue to setter-queue. Finish = " + std::to_string (dataNode.finish));
       }
@@ -149,14 +149,14 @@ void setter (
 
 // Getter
 void getter (
-      DataPool& setterDataPool_new,
-      DataPool& getterDataPool_new,
+      DataPool& setterDataPool,
+      DataPool& getterDataPool,
       ExecutiveControl& exeControl)
 {
    DataNode dataNode;
 
    do {
-      dataNode = setterDataPool_new.pop ();
+      dataNode = setterDataPool.pop ();
 
       if (dataNode.selection == Selection::ProcessNode)
       {
@@ -171,16 +171,16 @@ void getter (
 
          thread_print (std::to_string (__LINE__) + ": Processing data node " + std::to_string (dataNode.check));
 
-         getterDataPool_new << dataNode;
+         getterDataPool << dataNode;
       }
    } while (dataNode.selection != Selection::FinishGetter);
 }
 
 int main ()
 {
-   DataPool execDataPool_new (6);
-   DataPool setterDataPool_new;
-   DataPool getterDataPool_new;
+   DataPool execDataPool (6);
+   DataPool setterDataPool;
+   DataPool getterDataPool;
 
    std::vector<std::thread> setters;
    std::vector<std::thread> getters;
@@ -195,16 +195,16 @@ int main ()
       setters.push_back (
             std::thread (
                setter,
-               std::ref (execDataPool_new),
-               std::ref (setterDataPool_new),
+               std::ref (execDataPool),
+               std::ref (setterDataPool),
                std::ref (exeControl)));
 
    for (int ind = 0; ind < num_getters; ind++)
       getters.push_back (
             std::thread (
                getter,
-               std::ref (setterDataPool_new),
-               std::ref (getterDataPool_new),
+               std::ref (setterDataPool),
+               std::ref (getterDataPool),
                std::ref (exeControl)));
 
    // Executive
@@ -221,8 +221,8 @@ thread_print (std::to_string (__LINE__) + ": setter_time_ms = " + std::to_string
             setters.push_back (
                   std::thread (
                      setter,
-                     std::ref (execDataPool_new),
-                     std::ref (setterDataPool_new),
+                     std::ref (execDataPool),
+                     std::ref (setterDataPool),
                      std::ref (exeControl)));
 
             thread_print ("Increasing the number of setters because time to set per thread = " + std::to_string (exeControl.setter_time_ms));
@@ -234,8 +234,8 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
             getters.push_back (
                   std::thread (
                      getter,
-                     std::ref (setterDataPool_new),
-                     std::ref (getterDataPool_new),
+                     std::ref (setterDataPool),
+                     std::ref (getterDataPool),
                      std::ref (exeControl)));
             thread_print (std::to_string (__LINE__) + ": Increasing the number of getters because time to set per thread = " + std::to_string (exeControl.getter_time_ms));
          }
@@ -245,7 +245,7 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
          dataNode.check = read;
          dataNode.selection = Selection::ProcessNode;
 
-         execDataPool_new << dataNode;
+         execDataPool << dataNode;
       }
 
       // Shutdown
@@ -257,14 +257,14 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
          DataNode dataNode;
          dataNode.selection = Selection::FinishGetter;
 
-         execDataPool_new << dataNode;
+         execDataPool << dataNode;
       }
 
       for (int ind = 0; ind < setters.size (); ind++) {
          DataNode dataNode;
          dataNode.selection = Selection::FinishSetter;
 
-         execDataPool_new << dataNode;
+         execDataPool << dataNode;
       }
    }
 

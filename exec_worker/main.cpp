@@ -150,7 +150,7 @@ void setter (
 // Getter
 void getter (
       DataPool& setterDataPool_new,
-      std::queue<DataNode>& getterDataPool,
+      DataPool& getterDataPool_new,
       ExecutiveControl& exeControl)
 {
    DataNode dataNode;
@@ -171,11 +171,7 @@ void getter (
 
          thread_print (std::to_string (__LINE__) + ": Processing data node " + std::to_string (dataNode.check));
 
-         {
-            std::lock_guard (exeControl.getterPoolAccessLock);
-            getterDataPool.push (dataNode);
-            exeControl.getterDataPoolHasElement.post ();
-         }
+         getterDataPool_new << dataNode;
       }
    } while (dataNode.selection != Selection::FinishGetter);
 }
@@ -184,7 +180,7 @@ int main ()
 {
    DataPool execDataPool_new (6);
    DataPool setterDataPool_new;
-   std::queue<DataNode> getterDataPool;
+   DataPool getterDataPool_new;
 
    std::vector<std::thread> setters;
    std::vector<std::thread> getters;
@@ -208,7 +204,7 @@ int main ()
             std::thread (
                getter,
                std::ref (setterDataPool_new),
-               std::ref (getterDataPool),
+               std::ref (getterDataPool_new),
                std::ref (exeControl)));
 
    // Executive
@@ -239,7 +235,7 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
                   std::thread (
                      getter,
                      std::ref (setterDataPool_new),
-                     std::ref (getterDataPool),
+                     std::ref (getterDataPool_new),
                      std::ref (exeControl)));
             thread_print (std::to_string (__LINE__) + ": Increasing the number of getters because time to set per thread = " + std::to_string (exeControl.getter_time_ms));
          }

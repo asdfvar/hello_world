@@ -88,12 +88,12 @@ class DataPool
          std::lock_guard<std::mutex> local_lock (lock);
          DataNode dataNode = dataPool.front ();
          dataPool.pop ();
-//         if (enforceSizeLimit) queueSizeLimit.post ();
+         if (enforceSizeLimit) queueSizeLimit.post ();
          return dataNode;
       }
 
       void operator<< (DataNode& dataNode) {
-//         if (enforceSizeLimit) queueSizeLimit.wait ();
+         if (enforceSizeLimit) queueSizeLimit.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
          dataPool.push (dataNode);
          hasElement.post ();

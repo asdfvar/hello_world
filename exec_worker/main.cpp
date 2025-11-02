@@ -95,6 +95,12 @@ class DataPool
          hasElement.post ();
       }
 
+      DataNode front ()
+      {
+         std::lock_guard<std::mutex> local_lock (lock);
+         return dataPool.front ();
+      }
+
    private:
       std::mutex lock;
       std::queue<DataNode> dataPool;
@@ -106,7 +112,7 @@ class DataPool
 // Setter
 void setter (
       DataPool& execDataPool_new,
-      std::queue<DataNode>& setterDataPool,
+      DataPool& setterDataPool_new,
       ExecutiveControl& exeControl)
 {
    DataNode dataNode;
@@ -118,9 +124,7 @@ void setter (
 
       if (dataNode.selection == Selection::FinishGetter)
       {
-         std::lock_guard (exeControl.setterPoolAccessLock);
-         setterDataPool.push (dataNode);
-         exeControl.setterDataPoolHasElement.post ();
+         setterDataPool_new << dataNode;
       }
       else if (dataNode.selection == Selection::ProcessNode)
       {
@@ -134,13 +138,9 @@ void setter (
          auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - start);
          exeControl.setter_time_ms = static_cast<unsigned int> (duration.count ());
 
-         {
-            std::lock_guard (exeControl.setterPoolAccessLock);
-            setterDataPool.push (dataNode);
-            exeControl.setterDataPoolHasElement.post ();
-         }
+         setterDataPool_new << dataNode;
 
-         thread_print ("front check value = " + std::to_string (setterDataPool.front ().check));
+         thread_print ("front check value = " + std::to_string (setterDataPool_new.front ().check));
 
          thread_print ("moved " + std::to_string (dataNode.check) + " from exec-queue to setter-queue. Finish = " + std::to_string (dataNode.finish));
       }
@@ -149,21 +149,14 @@ void setter (
 
 // Getter
 void getter (
-      std::queue<DataNode>& setterDataPool,
+      DataPool& setterDataPool_new,
       std::queue<DataNode>& getterDataPool,
       ExecutiveControl& exeControl)
 {
    DataNode dataNode;
 
    do {
-      // wait until the front of the dataPool is set
-      exeControl.setterDataPoolHasElement.wait ();
-      {
-         std::lock_guard (exeControl.setterPoolAccessLock);
-
-         // Get the data node
-         dataNode = setterDataPool.front (); setterDataPool.pop ();
-      }
+      dataNode = setterDataPool_new.pop ();
 
       if (dataNode.selection == Selection::ProcessNode)
       {
@@ -190,7 +183,7 @@ void getter (
 int main ()
 {
    DataPool execDataPool_new (6);
-   std::queue<DataNode> setterDataPool;
+   DataPool setterDataPool_new;
    std::queue<DataNode> getterDataPool;
 
    std::vector<std::thread> setters;
@@ -207,14 +200,14 @@ int main ()
             std::thread (
                setter,
                std::ref (execDataPool_new),
-               std::ref (setterDataPool),
+               std::ref (setterDataPool_new),
                std::ref (exeControl)));
 
    for (int ind = 0; ind < num_getters; ind++)
       getters.push_back (
             std::thread (
                getter,
-               std::ref (setterDataPool),
+               std::ref (setterDataPool_new),
                std::ref (getterDataPool),
                std::ref (exeControl)));
 
@@ -233,7 +226,7 @@ thread_print (std::to_string (__LINE__) + ": setter_time_ms = " + std::to_string
                   std::thread (
                      setter,
                      std::ref (execDataPool_new),
-                     std::ref (setterDataPool),
+                     std::ref (setterDataPool_new),
                      std::ref (exeControl)));
 
             thread_print ("Increasing the number of setters because time to set per thread = " + std::to_string (exeControl.setter_time_ms));
@@ -245,7 +238,7 @@ thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string
             getters.push_back (
                   std::thread (
                      getter,
-                     std::ref (setterDataPool),
+                     std::ref (setterDataPool_new),
                      std::ref (getterDataPool),
                      std::ref (exeControl)));
             thread_print (std::to_string (__LINE__) + ": Increasing the number of getters because time to set per thread = " + std::to_string (exeControl.getter_time_ms));

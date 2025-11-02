@@ -92,7 +92,7 @@ class DataPool
          return dataNode;
       }
 
-      void operator<< (DataNode dataNode) {
+      void operator<< (DataNode& dataNode) {
 //         if (enforceSizeLimit) queueSizeLimit.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
          dataPool.push (dataNode);
@@ -119,16 +119,9 @@ void setter (
    do {
       // Get the data node
 
-#if 1
       exeControl.execDataPoolHasElement.wait ();
-      {
-         std::lock_guard (exeControl.execPoolAccessLock);
-         dataNode = execDataPool.front (); execDataPool.pop ();
-         exeControl.queueSizeSem.post ();
-      }
-#else
+      exeControl.queueSizeSem.post ();
       dataNode = execDataPool_new.pop ();
-#endif
 
       if (dataNode.selection == Selection::FinishGetter)
       {

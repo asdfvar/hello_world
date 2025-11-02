@@ -52,7 +52,7 @@ struct ExecutiveControl
 {
    ExecutiveControl () :
       queueSizeSem (6),
-      queueSize (6), // must be set to the same value as above
+      dataQueueSize (6), // must be set to the same value as above
       execDataPoolHasElement (0),
       setterDataPoolHasElement (0),
       getterDataPoolHasElement (0),
@@ -60,7 +60,7 @@ struct ExecutiveControl
       getter_time_ms (0) { }
 
    Semaphore queueSizeSem;
-   unsigned int queueSize;
+   unsigned int dataQueueSize;
    Semaphore execDataPoolHasElement;
    Semaphore setterDataPoolHasElement;
    Semaphore getterDataPoolHasElement;
@@ -154,7 +154,7 @@ void getter (
          auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - start);
          exeControl.getter_time_ms = static_cast<unsigned int> (duration.count ());
 
-         thread_print ("set data pool for index " + std::to_string (dataNode.check));
+         thread_print (std::to_string (__LINE__) + ": Processing data node " + std::to_string (dataNode.check));
 
          getterDataPool.push (dataNode);
          exeControl.getterDataPoolHasElement.post ();
@@ -201,7 +201,8 @@ int main ()
 
          // TODO: make these variables thread safe
          // Check the timing and increase the number of setters or getters appropriately
-         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () + getters.size () < exeControl.queueSize)
+thread_print (std::to_string (__LINE__) + ": setter_time_ms = " + std::to_string (exeControl.setter_time_ms));
+         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () < exeControl.dataQueueSize)
          {
             setters.push_back (
                   std::thread (
@@ -213,7 +214,8 @@ int main ()
             thread_print ("Increasing the number of setters because time to set per thread = " + std::to_string (exeControl.setter_time_ms));
          }
 
-         if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && setters.size () + getters.size () < exeControl.queueSize)
+thread_print (std::to_string (__LINE__) + ": getter_time_ms = " + std::to_string (exeControl.getter_time_ms));
+         if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && getters.size () < exeControl.dataQueueSize)
          {
             getters.push_back (
                   std::thread (
@@ -221,7 +223,7 @@ int main ()
                      std::ref (setterDataPool),
                      std::ref (getterDataPool),
                      std::ref (exeControl)));
-            thread_print ("Increasing the number of getters because time to set per thread = " + std::to_string (exeControl.getter_time_ms));
+            thread_print (std::to_string (__LINE__) + ": Increasing the number of getters because time to set per thread = " + std::to_string (exeControl.getter_time_ms));
          }
 
          // Add an item to the data queue

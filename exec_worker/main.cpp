@@ -180,8 +180,8 @@ class Timer {
       std::chrono::time_point<std::chrono::high_resolution_clock> start_, end_;
 };
 
-// Setter
-void setter (
+// Stage 1
+void stage1 (
       DataPool& stage1DataPool,
       DataPool& stage2DataPool,
       ExecutiveControl& exeControl)
@@ -214,8 +214,8 @@ void setter (
    } while (dataNode.selection != Selection::FinishStage1);
 }
 
-// Getter
-void getter (
+// Stage 2
+void stage2 (
       DataPool& stage2DataPool,
       DataPool& stage3DataPool,
       ExecutiveControl& exeControl)
@@ -257,7 +257,7 @@ int main ()
    for (int ind = 0; ind < num_setters; ind++)
       stage1s.push_back (
             std::thread (
-               setter,
+               stage1,
                std::ref (stage1DataPool),
                std::ref (stage2DataPool),
                std::ref (exeControl)));
@@ -265,7 +265,7 @@ int main ()
    for (int ind = 0; ind < num_getters; ind++)
       stage2s.push_back (
             std::thread (
-               getter,
+               stage2,
                std::ref (stage2DataPool),
                std::ref (stage3DataPool),
                std::ref (exeControl)));
@@ -281,7 +281,7 @@ int main ()
          {
             stage1s.push_back (
                   std::thread (
-                     setter,
+                     stage1,
                      std::ref (stage1DataPool),
                      std::ref (stage2DataPool),
                      std::ref (exeControl)));
@@ -291,7 +291,7 @@ int main ()
          {
             stage2s.push_back (
                   std::thread (
-                     getter,
+                     stage2,
                      std::ref (stage2DataPool),
                      std::ref (stage3DataPool),
                      std::ref (exeControl)));
@@ -307,7 +307,7 @@ int main ()
          stage1DataPool << dataNode;
       }
 
-      // Use all the results
+      // Use all the results ("stage 3")
       for (int read = 0; read < numReads; read++) stage3DataPool.pop ();
 
       // Shutdown

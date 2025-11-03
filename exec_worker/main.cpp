@@ -163,9 +163,7 @@ void setter (
 
          setterDataPool << dataNode;
 
-         thread_print ("front check value = " + std::to_string (setterDataPool.front ().check));
-
-         thread_print ("moved " + std::to_string (dataNode.check) + " from exec-queue to setter-queue. Finish = " + std::to_string (dataNode.finish));
+         thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (setterDataPool.front ().check));
       }
    } while (dataNode.selection != Selection::FinishSetter);
 }
@@ -189,7 +187,7 @@ void getter (
             std::this_thread::sleep_for (std::chrono::milliseconds (200));
          }
 
-         thread_print (std::to_string (__LINE__) + ": Processing data node " + std::to_string (dataNode.check));
+         thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (dataNode.check));
          getterDataPool << dataNode;
       }
    } while (dataNode.selection != Selection::FinishGetter);
@@ -230,7 +228,7 @@ int main ()
    {
       for (int read = 0; read < numReads; read++)
       {
-         thread_print ("reading index " + std::to_string (read));
+         thread_print ("Reading index " + std::to_string (read));
 
          // Check the timing and increase the number of setters or getters appropriately
          if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () < execDataPool.sizeLimit ())

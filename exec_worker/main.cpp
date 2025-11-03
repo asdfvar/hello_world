@@ -48,7 +48,7 @@ struct Data {
    int data; // pretend this is a pointer to the data
 };
 
-// Synchronization primatives between setters, getters, and executive
+// Synchronization primatives between stage1s, stage2s, and executive
 struct ExecutiveControl
 {
    ExecutiveControl () :
@@ -199,8 +199,8 @@ int main ()
    DataPool stage2DataPool;
    DataPool stage3DataPool;
 
-   std::vector<std::thread> setters;
-   std::vector<std::thread> getters;
+   std::vector<std::thread> stage1s;
+   std::vector<std::thread> stage2s;
 
    const int num_setters = 1;
    const int num_getters = 1;
@@ -209,7 +209,7 @@ int main ()
    ExecutiveControl exeControl;
 
    for (int ind = 0; ind < num_setters; ind++)
-      setters.push_back (
+      stage1s.push_back (
             std::thread (
                setter,
                std::ref (stage1DataPool),
@@ -217,7 +217,7 @@ int main ()
                std::ref (exeControl)));
 
    for (int ind = 0; ind < num_getters; ind++)
-      getters.push_back (
+      stage2s.push_back (
             std::thread (
                getter,
                std::ref (stage2DataPool),
@@ -230,10 +230,10 @@ int main ()
       {
          thread_print ("Reading index " + std::to_string (read));
 
-         // Check the timing and increase the number of setters or getters appropriately
-         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () < stage1DataPool.sizeLimit ())
+         // Check the timing and increase the number of stage1s or stage2s appropriately
+         if (exeControl.setter_time_ms / static_cast<float> (stage1s.size ()) > 10 && stage1s.size () < stage1DataPool.sizeLimit ())
          {
-            setters.push_back (
+            stage1s.push_back (
                   std::thread (
                      setter,
                      std::ref (stage1DataPool),
@@ -241,9 +241,9 @@ int main ()
                      std::ref (exeControl)));
          }
 
-         if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && getters.size () < stage1DataPool.sizeLimit ())
+         if (exeControl.getter_time_ms / static_cast<float> (stage2s.size ()) > 10 && stage2s.size () < stage1DataPool.sizeLimit ())
          {
-            getters.push_back (
+            stage2s.push_back (
                   std::thread (
                      getter,
                      std::ref (stage2DataPool),
@@ -261,17 +261,17 @@ int main ()
 
       // Shutdown
 
-      thread_print (std::to_string (__LINE__) + ": setters.size () = " + std::to_string (setters.size ()));
-      thread_print (std::to_string (__LINE__) + ": getters.size () = " + std::to_string (getters.size ()));
+      thread_print (std::to_string (__LINE__) + ": stage1s.size () = " + std::to_string (stage1s.size ()));
+      thread_print (std::to_string (__LINE__) + ": stage2s.size () = " + std::to_string (stage2s.size ()));
 
-      for (int ind = 0; ind < getters.size (); ind++) {
+      for (int ind = 0; ind < stage2s.size (); ind++) {
          DataNode dataNode;
          dataNode.selection = Selection::FinishGetter;
 
          stage1DataPool << dataNode;
       }
 
-      for (int ind = 0; ind < setters.size (); ind++) {
+      for (int ind = 0; ind < stage1s.size (); ind++) {
          DataNode dataNode;
          dataNode.selection = Selection::FinishSetter;
 
@@ -279,8 +279,8 @@ int main ()
       }
    }
 
-   for (std::thread& setterThread : setters) setterThread.join ();
-   for (std::thread& getterThread : getters) getterThread.join ();
+   for (std::thread& stageThread : stage1s) stageThread.join ();
+   for (std::thread& stageThread : stage2s) stageThread.join ();
 
    return 0;
 }

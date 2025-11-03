@@ -135,8 +135,8 @@ class Timer {
 
 // Setter
 void setter (
-      DataPool& execDataPool,
-      DataPool& setterDataPool,
+      DataPool& stage1DataPool,
+      DataPool& stage2DataPool,
       ExecutiveControl& exeControl)
 {
    DataNode dataNode;
@@ -144,11 +144,11 @@ void setter (
    do {
       // Get the data node
 
-      dataNode = execDataPool.pop ();
+      dataNode = stage1DataPool.pop ();
 
       if (dataNode.selection == Selection::FinishGetter)
       {
-         setterDataPool << dataNode;
+         stage2DataPool << dataNode;
       }
       else if (dataNode.selection == Selection::ProcessNode)
       {
@@ -161,23 +161,23 @@ void setter (
             std::this_thread::sleep_for (std::chrono::milliseconds (200));
          }
 
-         setterDataPool << dataNode;
+         stage2DataPool << dataNode;
 
-         thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (setterDataPool.front ().check));
+         thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (stage2DataPool.front ().check));
       }
    } while (dataNode.selection != Selection::FinishSetter);
 }
 
 // Getter
 void getter (
-      DataPool& setterDataPool,
-      DataPool& getterDataPool,
+      DataPool& stage2DataPool,
+      DataPool& stage3DataPool,
       ExecutiveControl& exeControl)
 {
    DataNode dataNode;
 
    do {
-      dataNode = setterDataPool.pop ();
+      dataNode = stage2DataPool.pop ();
 
       if (dataNode.selection == Selection::ProcessNode)
       {
@@ -188,16 +188,16 @@ void getter (
          }
 
          thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (dataNode.check));
-         getterDataPool << dataNode;
+         stage3DataPool << dataNode;
       }
    } while (dataNode.selection != Selection::FinishGetter);
 }
 
 int main ()
 {
-   DataPool execDataPool (6);
-   DataPool setterDataPool;
-   DataPool getterDataPool;
+   DataPool stage1DataPool (6);
+   DataPool stage2DataPool;
+   DataPool stage3DataPool;
 
    std::vector<std::thread> setters;
    std::vector<std::thread> getters;
@@ -212,16 +212,16 @@ int main ()
       setters.push_back (
             std::thread (
                setter,
-               std::ref (execDataPool),
-               std::ref (setterDataPool),
+               std::ref (stage1DataPool),
+               std::ref (stage2DataPool),
                std::ref (exeControl)));
 
    for (int ind = 0; ind < num_getters; ind++)
       getters.push_back (
             std::thread (
                getter,
-               std::ref (setterDataPool),
-               std::ref (getterDataPool),
+               std::ref (stage2DataPool),
+               std::ref (stage3DataPool),
                std::ref (exeControl)));
 
    // Executive
@@ -231,23 +231,23 @@ int main ()
          thread_print ("Reading index " + std::to_string (read));
 
          // Check the timing and increase the number of setters or getters appropriately
-         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () < execDataPool.sizeLimit ())
+         if (exeControl.setter_time_ms / static_cast<float> (setters.size ()) > 10 && setters.size () < stage1DataPool.sizeLimit ())
          {
             setters.push_back (
                   std::thread (
                      setter,
-                     std::ref (execDataPool),
-                     std::ref (setterDataPool),
+                     std::ref (stage1DataPool),
+                     std::ref (stage2DataPool),
                      std::ref (exeControl)));
          }
 
-         if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && getters.size () < execDataPool.sizeLimit ())
+         if (exeControl.getter_time_ms / static_cast<float> (getters.size ()) > 10 && getters.size () < stage1DataPool.sizeLimit ())
          {
             getters.push_back (
                   std::thread (
                      getter,
-                     std::ref (setterDataPool),
-                     std::ref (getterDataPool),
+                     std::ref (stage2DataPool),
+                     std::ref (stage3DataPool),
                      std::ref (exeControl)));
          }
 
@@ -256,7 +256,7 @@ int main ()
          dataNode.check = read;
          dataNode.selection = Selection::ProcessNode;
 
-         execDataPool << dataNode;
+         stage1DataPool << dataNode;
       }
 
       // Shutdown
@@ -268,14 +268,14 @@ int main ()
          DataNode dataNode;
          dataNode.selection = Selection::FinishGetter;
 
-         execDataPool << dataNode;
+         stage1DataPool << dataNode;
       }
 
       for (int ind = 0; ind < setters.size (); ind++) {
          DataNode dataNode;
          dataNode.selection = Selection::FinishSetter;
 
-         execDataPool << dataNode;
+         stage1DataPool << dataNode;
       }
    }
 

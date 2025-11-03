@@ -17,6 +17,39 @@ void thread_print (const std::string& message) {
 
 enum class Selection {ProcessNode, FinishStage1, FinishStage2};
 
+class Latch {
+   public:
+
+      Latch (unsigned int count) : count_ (count) { }
+      Latch () : count_ (0) { }
+
+      void operator++ (int) {
+         std::unique_lock<std::mutex> lock (mutex_);
+         count_++;
+      }
+
+      void operator-- (int) {
+         std::unique_lock<std::mutex> lock (mutex_);
+         count_--;
+      }
+
+      void wait () {
+         std::unique_lock<std::mutex> lock (mutex_);
+         condition_variable_.wait (lock, [this] {return count_ <= 0;});
+      }
+
+      unsigned int size ()
+      {
+         return count_;
+      }
+
+   private:
+
+      std::mutex mutex_;
+      unsigned int count_;
+      std::condition_variable condition_variable_;
+};
+
 class Semaphore {
    public:
       explicit Semaphore (int initial_count = 0) : count_ (initial_count) {}
@@ -52,7 +85,7 @@ struct Data {
 struct ExecutiveControl
 {
    ExecutiveControl () :
-      dataQueueSize (6), // must be set to the same value as above
+      dataQueueSize (6),
       setter_time_ms (0),
       getter_time_ms (0) { }
 
@@ -80,6 +113,7 @@ class DataPool
          DataNode dataNode = dataPool.front ();
          dataPool.pop ();
          if (enforceSizeLimit) queueSizeLimit.post ();
+         latch--;
          return dataNode;
       }
 
@@ -87,6 +121,7 @@ class DataPool
       {
          if (enforceSizeLimit) queueSizeLimit.wait ();
          std::lock_guard<std::mutex> local_lock (lock);
+         latch++;
          dataPool.push (dataNode);
          hasElement.post ();
       }
@@ -106,10 +141,22 @@ class DataPool
          return sizeLimit_;
       }
 
+      // Debugging functionality
+      void print (std::string&& msg) {
+         std::lock_guard<std::mutex> local_lock (lock);
+         std::queue<DataNode> tempQueue = dataPool;
+         while (!tempQueue.empty ()) {
+            thread_print (std::to_string (__LINE__) + ": " + msg + " Check = " + std::to_string (tempQueue.front ().check));
+            tempQueue.pop ();
+         }
+         thread_print (std::to_string (__LINE__) + ": " + msg);
+      }
+
    private:
       std::mutex lock;
       std::queue<DataNode> dataPool;
       Semaphore queueSizeLimit;
+      Latch latch;
       int sizeLimit_;
       Semaphore hasElement;
       bool enforceSizeLimit;
@@ -143,7 +190,6 @@ void setter (
 
    do {
       // Get the data node
-
       dataNode = stage1DataPool.pop ();
 
       if (dataNode.selection == Selection::FinishStage2)
@@ -161,9 +207,9 @@ void setter (
             std::this_thread::sleep_for (std::chrono::milliseconds (200));
          }
 
+         stage1DataPool.print ("setter_processNode");
+         thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (dataNode.check));
          stage2DataPool << dataNode;
-
-         thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (stage2DataPool.front ().check));
       }
    } while (dataNode.selection != Selection::FinishStage1);
 }
@@ -256,8 +302,13 @@ int main ()
          dataNode.check = read;
          dataNode.selection = Selection::ProcessNode;
 
+         thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (dataNode.check));
+
          stage1DataPool << dataNode;
       }
+
+      // Use all the results
+      for (int read = 0; read < numReads; read++) stage3DataPool.pop ();
 
       // Shutdown
 
@@ -267,6 +318,7 @@ int main ()
       for (int ind = 0; ind < stage2s.size (); ind++) {
          DataNode dataNode;
          dataNode.selection = Selection::FinishStage2;
+         dataNode.check = -2;
 
          stage1DataPool << dataNode;
       }
@@ -274,6 +326,7 @@ int main ()
       for (int ind = 0; ind < stage1s.size (); ind++) {
          DataNode dataNode;
          dataNode.selection = Selection::FinishStage1;
+         dataNode.check = -1;
 
          stage1DataPool << dataNode;
       }

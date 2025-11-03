@@ -15,7 +15,7 @@ void thread_print (const std::string& message) {
    std::cout << message << std::endl;
 }
 
-enum class Selection {ProcessNode, FinishGetter, FinishSetter};
+enum class Selection {ProcessNode, FinishStage1, FinishStage2};
 
 class Semaphore {
    public:
@@ -146,7 +146,7 @@ void setter (
 
       dataNode = stage1DataPool.pop ();
 
-      if (dataNode.selection == Selection::FinishGetter)
+      if (dataNode.selection == Selection::FinishStage2)
       {
          stage2DataPool << dataNode;
       }
@@ -165,7 +165,7 @@ void setter (
 
          thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (stage2DataPool.front ().check));
       }
-   } while (dataNode.selection != Selection::FinishSetter);
+   } while (dataNode.selection != Selection::FinishStage1);
 }
 
 // Getter
@@ -190,7 +190,7 @@ void getter (
          thread_print (std::to_string (__LINE__) + ": Check = " + std::to_string (dataNode.check));
          stage3DataPool << dataNode;
       }
-   } while (dataNode.selection != Selection::FinishGetter);
+   } while (dataNode.selection != Selection::FinishStage2);
 }
 
 int main ()
@@ -266,14 +266,14 @@ int main ()
 
       for (int ind = 0; ind < stage2s.size (); ind++) {
          DataNode dataNode;
-         dataNode.selection = Selection::FinishGetter;
+         dataNode.selection = Selection::FinishStage2;
 
          stage1DataPool << dataNode;
       }
 
       for (int ind = 0; ind < stage1s.size (); ind++) {
          DataNode dataNode;
-         dataNode.selection = Selection::FinishSetter;
+         dataNode.selection = Selection::FinishStage1;
 
          stage1DataPool << dataNode;
       }
